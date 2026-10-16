@@ -1,0 +1,28 @@
+# --- Python -------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# --- Virtual environments (PyCharm creates .venv automatically) ---------
+.venv/
+venv/
+env/
+ENV/
+
+# --- Runtime data -------------------------------------------------------
+# The SQLite database is created on first run and holds demonstration data,
+# so it is not part of the source code.
+data/
+*.db
+*.sqlite3
+
+# --- PyCharm / editor ---------------------------------------------------
+.idea/
+*.iml
+.vscode/
+
+# --- OS ----------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini

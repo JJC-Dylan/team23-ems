@@ -1,0 +1,191 @@
+<<<TABLE 1: 3r x 1c>>>
+
+
+
+<<<END TABLE>>>
+[Heading 1] User Requirements Specification
+A software solution for MeítǐShāngchéng
+[Heading 2] Document Change Record
+<<<TABLE 2: 3r x 4c>>>
+Date | Version | Author | Comments
+2026-10-13 | 1.0 | Project Team | Initial URS,aligned with Team23 Project Plan
+2026-10-15 | 1.1 | Project Team | Revised user-role definitions per tutor feedback:removed ambiguous"Administrator";defined HR,Supervisor and Ordinary Employee;corrected shift-assignment actor to Supervisor;standardized use-case extension numbering(1A/2A);added Ordinary Employee use case;added include-relationship and System Overall Overview.
+<<<END TABLE>>>
+[Heading 1] 1 Introduction
+[Heading 2] 1.1 Document Purpose
+This User Requirements Specification(URS)defines functional and non-functional user requirements for the Employee Management System of MeítǐShāngchéng hardware store in Zhengzhou.
+This is an official deliverable of Team23.It serves as reference for system design,development and acceptance testing.Requirements are extracted from client interview with Henriette and the Team23 project plan.This document describes what the system must accomplish,without describing low-level technical implementation.Target readers:development team,Fontys&ZZULI teachers,client representative Henriette.
+[Heading 2] 1.2 Document Overview
+-Section 2:Project business background,scope and objectives-Section 3:Stakeholders and user-role analysis-Section 4:Project assumptions and constraints-Section 5:Functional and non-functional requirement list-Section 6:Desktop GUI page descriptions-Section 7:Use-case diagram specification-Section 8:Detailed textual use-case descriptions-Section 9:System overall overview
+[Heading 2] 1.3 Definitions,Acronyms and Abbreviations
+<<<TABLE 3: 7r x 2c>>>
+Term | Description
+Fontys | Fontys University of Applied Sciences,Dutch supervising partner university
+GIT | Distributed version-control system for team collaboration
+GUI | Graphical User Interface
+URS | User Requirements Specification,this requirements document
+ZZULI | Zhengzhou University of Light Industry
+MoSCoW | Prioritization:Must-have/Should-have/Could-have/Won’t-have
+<<<END TABLE>>>
+[Heading 1] 2 Background&Business Context
+MeítǐShāngchéng is a new hardware store funded by its parent company Jupiter,preparing to open its first physical shop in Zhengzhou.Existing Jupiter-managed stores rely on Excel spreadsheets and online calendars for employee record-keeping and shift arrangement.
+These existing tools are cumbersome,unreliable and fragmented.There is no centralized system to store employee data(name,address,hourly wage)or manage daily work shifts.HR staff and supervisors struggle to add or remove staff,view workforce statistics,search employee records or assign shifts without error-prone manual work.
+Client priority:Employee management is the highest-priority objective for this project iteration.Product-stock management will only be considered if the team has remaining spare time.All other advanced features belong to future product versions.Three fixed daily shifts:Morning,Afternoon,Evening.
+[Heading 2] 2.1 Scope and Objectives
+Employee management module(Must-have,core for current release)Complete employee record management,employee query,manual shift assignment,shift viewing,with role permission separation for HR,Supervisor and Ordinary Employee.
+Inventory/stock-management module(Conditional Could-have)Only implemented if employee-management functions are fully finished and extra development time remains.Not mandatory deliverable.
+Advanced functions(Won’t-have for current iteration)Department management,in-store attendance registration,depot restock request handling,management statistics dashboard,employee self-service website are postponed to future versions.
+[Heading 1] 3 Stakeholder and User Analysis
+[Heading 2] End-user roles
+<<<TABLE 4: 5r x 2c>>>
+User Role | Permission Description
+Human Resources(HR) | Full read-write access to employee records.Create,edit and delete employee records;query employee information and view all shift schedules.Performs recruitment and dismissal-related personnel operations.Cannot assign work shifts.
+Supervisor | Store team supervisor.Can query employee information and view all shift schedules.Responsible for manual work-shift assignment for subordinates.No permission to create or delete employee records.
+Ordinary Employee | General shop staff.Read-only access:can only view their own assigned work shifts.Cannot modify employee data or shift plans.
+Depot worker | Out-of-scope for current iteration,reserved for future stock-management extension.
+<<<END TABLE>>>
+[Heading 2] Project Stakeholders
+Client：Henriette(MeítǐShāngchéng manager).Team representative James handles client communication.
+Team-23 Development Team
+<<<TABLE 5: 5r x 3c>>>
+Name | ID | Role
+Morty | 542512320422 | Team Leader
+Dylan | 542512320409 | Member
+Spring | 542512320421 | Member
+Jensen | 542512320406 | Member
+<<<END TABLE>>>
+Supervisors：One Fontys teacher and two ZZULI teachers.
+[Heading 1] 4 Assumptions and Constraints
+[Heading 2] 4.1 Constraints
+Time constraint:Waterfall phase runs from Week 4 to Week 9.All deliverables must be completed before Week 9,including mid-term presentation and final go/no-go evaluation.
+Methodology constraint:Follow Waterfall model first,then iterative refinement.
+Version-control constraint:All team members contribute via shared GIT repository from individual devices.
+Functional constraint:Only manual shift assignment supported;automatic shift generation is excluded.
+Deployment constraint:Deliver desktop-only application.Employee web portal will not be delivered.
+Performance constraint:Support maximum 10 concurrent logged-in users.
+Scope constraint:Employee management is highest priority;inventory management is optional secondary feature.
+[Heading 2] 4.2 Assumptions
+Login accounts for HR,Supervisor and Ordinary Employee are created outside this application.
+Three fixed shift types(Morning/Afternoon/Evening);custom shift creation is not required.
+This software is an internal shop-administration tool;it will not be exposed to public internet.
+[Heading 1] 5 User Requirements
+[Heading 2] 5.1 Functional Requirements
+<<<TABLE 6: 19r x 3c>>>
+ID | Requirement Description | MoSCoW
+FR01 | Human Resources(HR)can add a new employee record storing name,address and hourly wage | Must
+FR02 | Human Resources(HR)can delete employee records for resigned,fired or retired staff | Must
+FR03 | Human Resources(HR)can edit and update existing employee information | Must
+FR04 | HR and Supervisor can search a specific employee and open the employee detail view | Must
+FR05 | HR and Supervisor can view the full overview list of all store employees | Must
+FR06 | Supervisor can manually assign Morning/Afternoon/Evening shift for employees | Must
+FR07 | HR and Supervisor can view the assigned work shifts of one single employee;an Ordinary Employee can view only their own work shifts | Must
+FR08 | HR and Supervisor can view the full-store work-shift overview for all employees | Must
+FR09 | Supervisor can view the employee list and employee details without any edit or delete permission | Must
+FR10 | Supervisor can view the shift overview and assign work shifts;cannot create,edit or delete employee records | Must
+FR11 | System returns a human-readable error message when invalid employee input data is submitted | Should
+FR12 | System supports filtering the employee list by conditions,e.g.hourly-wage range | Could
+FR13 | A simple total-employee-count statistic is displayed on the employee overview page | Could
+FR14 | Assign employees to departments | Won’t-have
+FR15 | In-store employee attendance registration | Won’t-have
+FR16 | Automatically generate work-shift schedules | Won’t-have
+FR17 | Product-stock and depot-restock-request management | Won’t-have
+FR18 | Full employee self-service website for personal data and shift checking | Won’t-have
+<<<END TABLE>>>
+[Heading 2] 5.2 Non-Functional Requirements
+<<<TABLE 7: 7r x 3c>>>
+ID | Requirement | MoSCoW
+NFR01 | Employee-search and list-page loading response time≤ 2 seconds | Must
+NFR02 | Role-based access control:only HR can add,edit or delete employee records;only Supervisor can assign work shifts;Ordinary Employees can view only their own data | Must
+NFR03 | Employee and shift data persist after application restarts | Must
+NFR04 | Show user-friendly error prompts;avoid raw technical exception messages for end-users | Should
+NFR05 | System supports maximum 10 concurrent logged-in users | Should
+NFR06 | Graphical user interface shall be simple and easy-to-use for non-technical shop administrators | Should
+<<<END TABLE>>>
+[Heading 1] 6 Application GUI Views
+Login View:Login screen for username-password input.After login,menu options and button visibility change according to the logged-in user role.
+Employee Overview View:Table view listing all employees;includes a search box.HR sees the Add/Edit/Delete action buttons.For Supervisor these modification buttons are hidden.Ordinary Employee cannot access this page.
+Employee Detail and Edit View:Displays employee personal data.HR can edit the fields and open the shift-assignment panel.For Supervisor the input boxes are disabled,showing read-only data.Ordinary Employee cannot access this page.
+Shift Assignment Panel View:Drop-down selector for Morning/Afternoon/Evening shift plus a confirm-save button.This panel is visible only for the Supervisor actor;HR performs personnel-file operations,not daily shift assignment.
+Full-Store Shift Overview View:Table showing every employee and their assigned work shift.Accessible to HR and Supervisor;shift-modification controls are hidden for Supervisor.Ordinary Employee reaches their own schedule through the separate"My Work Shifts"view.
+[Heading 1] 7 Use Case Diagram
+[Heading 2] Actors
+Human Resources(HR)
+Supervisor
+Ordinary Employee
+[Heading 2] System Boundary
+MeítǐShāngchéng Desktop Employee-Management System
+[Heading 3] Use-cases connected to Human Resources(HR)
+-Add new employee-Delete employee-Edit employee information-Search employee(included by detail-view use cases)-View employee details-View single-employee shift-View full-store shift overview
+[Heading 3] Use-cases connected to Supervisor
+-Search employee(included by detail-view use cases)-View employee details-View single-employee shift-View full-store shift overview-Manually assign work shift
+[Heading 3] Use-cases connected to Ordinary Employee
+-View own work shifts
+[Heading 3] Diagram notes
+1.Shared use-cases:Search employee,View employee details,View single-employee shift and View full-store shift overview are available to both HR and Supervisor.2.Exclusive to HR:Add new employee,Delete employee and Edit employee information;Supervisor has no permission to create or delete employee records.3.Exclusive to Supervisor:Manually assign work shift.HR handles recruitment and dismissal personnel operations,not daily staff scheduling.4.Exclusive to Ordinary Employee:View own work shifts only.5.Search employee is a reused basic operation included(<<include>>)by the detail-view use cases.6.The flow starts from Login;after authentication the system enters the System Home Page and branches to different function modules according to the logged-in role.
+Text sketch for drawing tool(Draw.io/StarUML):
+[Heading 1] 8 Use Case Models
+[Heading 2] Use Case 1:HR adds new employee(FR01)
+<<<TABLE 8: 7r x 2c>>>
+Item | Content
+Use Case title | HR adds new employee
+Actor | Human Resources(HR)
+Precondition | HR is logged into the system and holds employee-record management permission.
+Trigger | HR clicks the"Add new employee"button on the employee overview page.
+Main Success Scenario | 1.System opens the new-employee input form. 2.HR fills in the employee name,address and hourly wage. 3.HR submits the form. 4.System validates the input field contents. 5.System saves the new employee record to the database. 6.System refreshes the employee overview list;the new employee entry is displayed.
+Extensions | 1A(Step 4):A mandatory field is left empty or the hourly wage contains an invalid value. 1.System displays a user-friendly error message. 2.The system stays on the input form,preserves the data already entered,and terminates the use case.
+<<<END TABLE>>>
+[Heading 2] Use Case 2:Supervisor assigns work shift to employee(FR06)
+<<<TABLE 9: 7r x 2c>>>
+Item | Content
+Use Case title | Supervisor manually assigns work shift for an employee
+Actor | Supervisor
+Precondition | Supervisor is logged in;the target employee record exists in the system.
+Trigger | Supervisor opens the target employee detail page and opens the shift-assignment panel.
+Main Success Scenario | 1.System presents three shift options:Morning/Afternoon/Evening. 2.Supervisor selects one shift option and confirms the assignment. 3.System saves the shift record linked to the target employee ID. 4.The employee detail page and the full-store shift overview display the updated assignment.
+Extensions | 1A(Step 2):The target employee record cannot be found in the system. 1.System pops up an error notification. 2.System returns to the employee overview page and terminates the use case.
+<<<END TABLE>>>
+[Heading 2] Use Case 3:User views work shifts of single employee(FR07)
+<<<TABLE 10: 7r x 2c>>>
+Item | Content
+Use Case title | View work shifts of a single employee
+Actor | Human Resources(HR),Supervisor
+Precondition | The user is logged in;the target employee record exists in the system.
+Trigger | The user opens the detail page of the target employee.
+Main Success Scenario | 1.System loads the employee detail view. 2.System fetches and displays all assigned work-shift records for this employee.
+Extensions | 1A(Step 2):No shift record has been assigned to this employee. 1.System shows the placeholder text"No shifts assigned for this employee". 2.The use case completes normally.
+<<<END TABLE>>>
+[Heading 2] Use Case 4:User browses full-store shift overview(FR08,FR10)
+<<<TABLE 11: 7r x 2c>>>
+Item | Content
+Use Case title | View full-store shift overview
+Actor | Human Resources(HR),Supervisor
+Precondition | The user is logged into the system.
+Trigger | The user navigates to the"Store shift overview"menu page.
+Main Success Scenario | 1.System loads the full-store shift-overview table. 2.The table lists each employee together with their assigned shift(Morning/Afternoon/Evening). 3.Shift-modification controls are hidden for the Supervisor view;shift assignment is performed only from the employee detail panel.
+Extensions | 1A(Step 1):The database contains zero employee records. 1.System shows the placeholder text"No employee data available". 2.The use case completes normally.
+<<<END TABLE>>>
+[Heading 2] Use Case 5:HR deletes employee record(FR02)
+<<<TABLE 12: 7r x 2c>>>
+Item | Content
+Use Case title | Delete employee record(for resigned/fired/retired staff)
+Actor | Human Resources(HR)
+Precondition | HR is logged in;the target employee record exists in the system.
+Trigger | HR clicks the delete button on the target employee entry in the overview list.
+Main Success Scenario | 1.System pops up a confirmation dialog for the deletion action. 2.HR confirms the deletion. 3.System removes the employee record and all linked shift-assignment records. 4.The employee overview list refreshes and the target entry disappears.
+Extensions | 1A(Step 2):HR cancels the deletion confirmation. 1.System closes the confirmation popup and makes no data modification. 2.System returns to the employee overview page and terminates the use case.
+<<<END TABLE>>>
+[Heading 2] Use Case 6:Ordinary Employee views own work shifts(FR07)
+<<<TABLE 13: 7r x 2c>>>
+Item | Content
+Use Case title | Ordinary Employee views own work shifts
+Actor | Ordinary Employee
+Precondition | The ordinary employee is successfully logged in.
+Trigger | The ordinary employee selects the"My Work Shifts"menu item.
+Main Success Scenario | 1.System loads the personal shift view page. 2.System displays only the work-shift records belonging to the currently logged-in employee.
+Extensions | 1A(Step 2):No shift has been assigned to the current employee. 1.System shows the placeholder text"You have not been assigned any shifts yet". 2.The use case completes.
+<<<END TABLE>>>
+[Heading 1] 9 System Overall Overview
+This desktop-oriented employee-management system is built for MeítǐShāngchéng hardware store in Zhengzhou.It solves the pain point of fragmented,Excel-based manual personnel and shift management.
+Three distinct end-user roles are defined,with strict role-based access control.(1)HR takes charge of the employee-record lifecycle:add,edit and delete employee personal records,and cross-check all employee and shift data;HR is not responsible for daily staff scheduling.(2)The Supervisor performs subordinate staff shift assignment;the Supervisor can browse employee and shift information but cannot create or delete employee archives.(3)Ordinary store employees can only view their own personal shift schedule,without any modification privilege.
+System execution flow starts with user Login.After authentication the system enters the System Home Page,then renders different menu sets and function modules according to the user identity.The Search-employee operation is a reused basic function included(<<include>>)within multiple detail-view use cases.
+Inventory management is a conditional could-have requirement reserved for future extension.Advanced features such as attendance registration,department management and a full employee self-service web portal belong to later product iterations and will not be delivered in this release.

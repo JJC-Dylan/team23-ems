@@ -1,0 +1,86 @@
+﻿{% extends 'base.html' %}
+
+{% block content %}
+<div class="login-wrap">
+  <section class="login-card">
+    <header class="login-card__head">
+      <span class="brand__mark brand__mark--large" aria-hidden="true">M</span>
+      <h1>Employee Management System</h1>
+      <p class="muted">MeítǐShāngchéng hardware store · Zhengzhou</p>
+    </header>
+
+    {% if error %}
+      <div class="alert alert--error" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/login" class="form" autocomplete="off">
+      <input type="hidden" name="next" value="{{ next_path }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" value="{{ username }}"
+               required autofocus autocomplete="username" placeholder="hr">
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password"
+               required autocomplete="current-password" placeholder="Your password">
+      </div>
+
+      <button type="submit" class="button button--primary button--block">Sign in</button>
+    </form>
+
+    <details class="demo-accounts">
+      <summary>Demonstration accounts</summary>
+      <p class="muted small">
+        The URS records the assumption that login accounts are created outside
+        this application. These three demonstration accounts are seeded so the
+        role behaviour can be shown:
+      </p>
+      <table class="table table--compact">
+        <thead>
+          <tr><th>Role</th><th>Username</th><th>Password</th><th>May do</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="role-badge role-badge--hr">HR</span></td>
+            <td><code>hr</code></td><td><code>hr123</code></td>
+            <td>Add, edit, delete employees; view all shifts</td>
+          </tr>
+          <tr>
+            <td><span class="role-badge role-badge--supervisor">Supervisor</span></td>
+            <td><code>supervisor</code></td><td><code>super123</code></td>
+            <td>Assign shifts; read-only employee data</td>
+          </tr>
+          <tr>
+            <td><span class="role-badge role-badge--ordinary-employee">Ordinary Employee</span></td>
+            <td><code>employee</code></td><td><code>emp123</code></td>
+            <td>View only their own work shifts</td>
+          </tr>
+        </tbody>
+      </table>
+    </details>
+  </section>
+
+  <aside class="login-aside">
+    <h2>Three fixed daily shifts</h2>
+    <ul class="pill-list">
+      <li class="pill pill--Morning">Morning</li>
+      <li class="pill pill--Afternoon">Afternoon</li>
+      <li class="pill pill--Evening">Evening</li>
+    </ul>
+    <h2>Role-based access</h2>
+    <ul class="ticks">
+      <li><strong>HR</strong> owns the employee-record lifecycle.</li>
+      <li><strong>Supervisor</strong> assigns the daily shifts.</li>
+      <li><strong>Ordinary Employee</strong> sees only their own schedule.</li>
+    </ul>
+    <p class="muted small">
+      Internal shop-administration tool. Employee data and shift assignments
+      persist in a local SQLite database.
+    </p>
+  </aside>
+</div>
+{% endblock %}

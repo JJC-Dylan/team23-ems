@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="pagehead">
+  <div>
+    <h1>Employees</h1>
+    <p class="muted">
+      Search the workforce, open an employee record, and
+      {% if can_manage %}add, edit or delete employee data.{% else %}view employee details.{% endif %}
+    </p>
+  </div>
+  {% if can_manage %}
+    <a class="button button--primary" href="/employees/new">+ Add new employee</a>
+  {% else %}
+    <span class="notice notice--readonly">Supervisor view · read-only employee data</span>
+  {% endif %}
+</div>
+
+<section class="card">
+  <form class="filter-bar" method="get" action="/employees">
+    <div class="filter-bar__field filter-bar__field--grow">
+      <label for="q">Search</label>
+      <input id="q" name="q" type="search" value="{{ query }}"
+             placeholder="Name, address, phone or email">
+    </div>
+    <div class="filter-bar__field">
+      <label for="wage_min">Wage from</label>
+      <input id="wage_min" name="wage_min" type="number" step="0.01" min="0"
+             value="{{ wage_min }}" placeholder="0.00">
+    </div>
+    <div class="filter-bar__field">
+      <label for="wage_max">Wage to</label>
+      <input id="wage_max" name="wage_max" type="number" step="0.01" min="0"
+             value="{{ wage_max }}" placeholder="100.00">
+    </div>
+    <div class="filter-bar__field">
+      <label for="shift">Shift</label>
+      <select id="shift" name="shift">
+        <option value="">All shifts</option>
+        {% for name in shift_names %}
+          <option value="{{ name }}" {% if shift_filter == name %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+        <option value="Unassigned" {% if shift_filter == 'Unassigned' %}selected{% endif %}>Unassigned</option>
+      </select>
+    </div>
+    <div class="filter-bar__field">
+      <label for="sort">Sort by</label>
+      <select id="sort" name="sort">
+        <option value="name" {% if sort == 'name' %}selected{% endif %}>Name (A–Z)</option>
+        <option value="name_desc" {% if sort == 'name_desc' %}selected{% endif %}>Name (Z–A)</option>
+        <option value="wage" {% if sort == 'wage' %}selected{% endif %}>Wage (low to high)</option>
+        <option value="wage_desc" {% if sort == 'wage_desc' %}selected{% endif %}>Wage (high to low)</option>
+        <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest first</option>
+      </select>
+    </div>
+    <div class="filter-bar__actions">
+      <button type="submit" class="button button--primary">Search</button>
+      <a class="button button--ghost" href="/employees">Reset</a>
+    </div>
+  </form>
+
+  {% if filter_problem %}
+    <div class="alert alert--error">{{ filter_problem }} The wage filter was ignored.</div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="card__head">
+    <h2>
+      {{ result_count }} employee(s) shown
+      <span class="muted small">of {{ total_employees }} in total</span>
+    </h2>
+    <div class="legend">
+      {% for name in shift_names %}
+        <span class="pill pill--{{ name }}">{{ name }}: {{ shift_counts[name] }}</span>
+      {% endfor %}
+      <span class="pill pill--Unassigned">Unassigned: {{ shift_counts['Unassigned'] }}</span>
+    </div>
+  </div>
+
+  {% if employees %}
+  <div class="table-scroll">
+    <table class="table table--hover">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Address</th>
+          <th class="num">Hourly wage</th>
+          <th>Shift</th>
+          <th>Contact</th>
+          <th class="actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for employee in employees %}
+        <tr>
+          <td>
+            <a class="link link--strong" href="/employees/{{ employee.id }}">{{ employee.name }}</a>
+            <span class="muted small">#{{ employee.id }}</span>
+          </td>
+          <td class="muted">{{ employee.address }}</td>
+          <td class="num">{{ format_currency(employee.hourly_wage) }}</td>
+          <td>
+            <span class="pill pill--{{ employee.shift_name or 'Unassigned' }}">
+              {{ employee.shift_name or 'Unassigned' }}
+            </span>
+          </td>
+          <td class="muted small">
+            {% if employee.phone %}{{ employee.phone }}{% endif %}
+            {% if employee.email %}<br>{{ employee.email }}{% endif %}
+            {% if not employee.phone and not employee.email %}Not recorded{% endif %}
+          </td>
+          <td class="actions-col">
+            <a class="button button--ghost button--small" href="/employees/{{ employee.id }}">View</a>
+            {% if can_manage %}
+              <a class="button button--ghost button--small" href="/employees/{{ employee.id }}/edit">Edit</a>
+              <form method="post" action="/employees/{{ employee.id }}/delete" class="inline-form"
+                    data-confirm="Delete {{ employee.name }}? This also removes the linked shift assignment.">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="button button--danger button--small">Delete</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="empty">
+      {% if query or wage_min or wage_max or shift_filter %}
+        No employee matches the current search and filters.
+      {% else %}
+        No employee data available.
+      {% endif %}
+    </p>
+  {% endif %}
+</section>
+{% endblock %}

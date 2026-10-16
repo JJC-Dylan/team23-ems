@@ -1,0 +1,50 @@
+﻿{% extends 'base.html' %}
+
+{% block content %}
+<div class="pagehead">
+  <div>
+    <h1>Welcome, {{ current_user.display_name }}</h1>
+    <p class="muted">
+      You are signed in as an Ordinary Employee. This system shows you your own
+      work-shift schedule; it does not allow changes to employee data or shift
+      plans.
+    </p>
+  </div>
+  <span class="role-badge role-badge--ordinary-employee">Ordinary Employee</span>
+</div>
+
+<section class="card card--shift-focus">
+  <h2>Your current shift</h2>
+  {% if shift_row %}
+    <p class="shift-big">
+      <span class="pill pill--{{ shift_row.shift_name }}">{{ shift_row.shift_name }}</span>
+    </p>
+    <p class="muted small">
+      Assigned on {{ shift_row.assigned_at }} by {{ shift_row.assigned_by }}.
+    </p>
+  {% else %}
+    <p class="empty">You have not been assigned any shifts yet.</p>
+  {% endif %}
+  <a class="button" href="/my-shifts">Open My work shifts</a>
+</section>
+
+<section class="card">
+  <h2>Your details</h2>
+  {% if profile_linked and employee %}
+  <dl class="detail-grid">
+    <div><dt>Name</dt><dd>{{ employee.name }}</dd></div>
+    <div><dt>Address</dt><dd>{{ employee.address }}</dd></div>
+    <div><dt>Hourly wage</dt><dd>{{ hourly_wage_text }}</dd></div>
+    <div><dt>Phone</dt><dd>{{ employee.phone or 'Not recorded' }}</dd></div>
+    <div><dt>Email</dt><dd>{{ employee.email or 'Not recorded' }}</dd></div>
+    <div><dt>Hired on</dt><dd>{{ employee.hired_on or 'Not recorded' }}</dd></div>
+  </dl>
+  <p class="muted small">These details are read-only. Contact Human Resources to change them.</p>
+  {% else %}
+  <p class="empty">
+    Your login account is not linked to an employee record yet. Please ask
+    Human Resources to link it.
+  </p>
+  {% endif %}
+</section>
+{% endblock %}

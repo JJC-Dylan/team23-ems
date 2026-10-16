@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<section class="card card--error">
+  <span class="error-code">{{ status }}</span>
+  <h1>{{ error_title }}</h1>
+  <p>{{ error_message }}</p>
+
+  <div class="action-row">
+    <a class="button button--primary" href="/">Back to home</a>
+    {% if current_user %}
+      <a class="button button--ghost" href="javascript:history.back()">Go back</a>
+    {% else %}
+      <a class="button button--ghost" href="/login">Go to sign in</a>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

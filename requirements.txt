@@ -1,0 +1,10 @@
+# The Employee Management System intentionally has NO third-party dependencies.
+#
+# It uses only the Python standard library:
+#   sqlite3     - persistence (URS NFR03)
+#   wsgiref     - WSGI plumbing
+#   http.server - threaded request handling (URS NFR05)
+#   hashlib     - PBKDF2 password hashing
+#
+# Python 3.10 or newer is required. Nothing needs to be installed for the
+# project to run in PyCharm; this file exists so the empty list is explicit.

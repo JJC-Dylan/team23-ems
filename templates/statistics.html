@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="pagehead">
+  <div>
+    <h1>Statistics</h1>
+    <p class="muted">
+      A simple overview of the workforce: total employee count, how the staff is
+      spread across the three shifts, and wage figures.
+    </p>
+  </div>
+</div>
+
+<section class="kpi-grid">
+  <article class="kpi">
+    <span class="kpi__label">Total employees</span>
+    <span class="kpi__value">{{ total_employees }}</span>
+  </article>
+  <article class="kpi">
+    <span class="kpi__label">Shifts assigned</span>
+    <span class="kpi__value">{{ assigned_total }}</span>
+  </article>
+  <article class="kpi">
+    <span class="kpi__label">Without a shift</span>
+    <span class="kpi__value kpi__value--warn">{{ unassigned_total }}</span>
+  </article>
+</section>
+
+<section class="two-col">
+  <div class="card">
+    <h2>Employees per shift</h2>
+    <table class="table">
+      <thead><tr><th>Shift</th><th class="num">Employees</th></tr></thead>
+      <tbody>
+        {% for name in shift_names %}
+        <tr>
+          <td><span class="pill pill--{{ name }}">{{ name }}</span></td>
+          <td class="num">{{ shift_counts[name] }}</td>
+        </tr>
+        {% endfor %}
+        <tr>
+          <td><span class="pill pill--Unassigned">Unassigned</span></td>
+          <td class="num">{{ shift_counts['Unassigned'] }}</td>
+        </tr>
+        <tr class="table__total">
+          <td>Total</td>
+          <td class="num">{{ total_employees }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Hourly wage figures</h2>
+    <dl class="detail-grid">
+      <div><dt>Average hourly wage</dt><dd>{{ average_wage }}</dd></div>
+      <div><dt>Lowest hourly wage</dt><dd>{{ lowest_wage }}</dd></div>
+      <div><dt>Highest hourly wage</dt><dd>{{ highest_wage }}</dd></div>
+      <div><dt>Sum of all hourly wages</dt><dd>{{ wage_bill }}</dd></div>
+    </dl>
+    <p class="muted small">
+      The sum is the total of every employee's hourly wage. It is an indicator of
+      the wage level, not a payroll figure, because worked hours are not recorded
+      in this release.
+    </p>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card__head">
+    <h2>Employee data used for these figures</h2>
+    <a class="link" href="/employees">Open the full overview</a>
+  </div>
+  {% if employees %}
+  <div class="table-scroll">
+    <table class="table">
+      <thead>
+        <tr><th>Employee</th><th class="num">Hourly wage</th><th>Shift</th></tr>
+      </thead>
+      <tbody>
+        {% for employee in employees %}
+        <tr>
+          <td><a class="link" href="/employees/{{ employee.id }}">{{ employee.name }}</a></td>
+          <td class="num">{{ format_currency(employee.hourly_wage) }}</td>
+          <td><span class="pill pill--{{ employee.shift_name or 'Unassigned' }}">{{ employee.shift_name or 'Unassigned' }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="empty">No employee data available.</p>
+  {% endif %}
+</section>
+{% endblock %}

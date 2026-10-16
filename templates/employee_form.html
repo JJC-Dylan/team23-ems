@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="pagehead">
+  <div>
+    <h1>{% if mode == 'create' %}Add new employee{% else %}Edit employee{% endif %}</h1>
+    <p class="muted">
+      {% if mode == 'create' %}
+        Create an employee record with a name, an address and an hourly wage.
+      {% else %}
+        Update the employee record. Changes are saved immediately when you submit.
+      {% endif %}
+    </p>
+  </div>
+  <a class="button button--ghost"
+     href="{% if mode == 'create' %}/employees{% else %}/employees/{{ employee.id }}{% endif %}">
+    Cancel
+  </a>
+</div>
+
+{% if errors %}
+  <div class="alert alert--error" role="alert">
+    <strong>Please correct the following and submit again.</strong>
+    <ul class="alert__list">
+      {% for field, message in errors.items() %}
+        <li>{{ message }}</li>
+      {% endfor %}
+    </ul>
+    <span class="small">Everything you typed has been kept.</span>
+  </div>
+{% endif %}
+
+<section class="card">
+  <form method="post" class="form form--grid"
+        action="{% if mode == 'create' %}/employees/new{% else %}/employees/{{ employee.id }}/edit{% endif %}"
+        novalidate>
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+
+    <div class="field {% if errors.name %}field--invalid{% endif %}">
+      <label for="name">Employee name <span class="req">*</span></label>
+      <input id="name" name="name" type="text" value="{{ form.name or '' }}" maxlength="60" required>
+      {% if errors.name %}<span class="field__error">{{ errors.name }}</span>{% endif %}
+    </div>
+
+    <div class="field {% if errors.hourly_wage %}field--invalid{% endif %}">
+      <label for="hourly_wage">Hourly wage (CNY) <span class="req">*</span></label>
+      <input id="hourly_wage" name="hourly_wage" type="number" step="0.01" min="1" max="1000"
+             value="{{ form.hourly_wage or '' }}" required>
+      {% if errors.hourly_wage %}<span class="field__error">{{ errors.hourly_wage }}</span>{% endif %}
+    </div>
+
+    <div class="field field--wide {% if errors.address %}field--invalid{% endif %}">
+      <label for="address">Address <span class="req">*</span></label>
+      <input id="address" name="address" type="text" value="{{ form.address or '' }}" maxlength="120" required>
+      {% if errors.address %}<span class="field__error">{{ errors.address }}</span>{% endif %}
+    </div>
+
+    <div class="field {% if errors.phone %}field--invalid{% endif %}">
+      <label for="phone">Phone</label>
+      <input id="phone" name="phone" type="text" value="{{ form.phone or '' }}" maxlength="30"
+             placeholder="138-0000-0000">
+      {% if errors.phone %}<span class="field__error">{{ errors.phone }}</span>{% endif %}
+    </div>
+
+    <div class="field {% if errors.email %}field--invalid{% endif %}">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="text" value="{{ form.email or '' }}" maxlength="80"
+             placeholder="name@example.com">
+      {% if errors.email %}<span class="field__error">{{ errors.email }}</span>{% endif %}
+    </div>
+
+    <div class="field {% if errors.hired_on %}field--invalid{% endif %}">
+      <label for="hired_on">Hire date</label>
+      <input id="hired_on" name="hired_on" type="date" value="{{ form.hired_on or '' }}">
+      {% if errors.hired_on %}<span class="field__error">{{ errors.hired_on }}</span>{% endif %}
+    </div>
+
+    <div class="form__actions">
+      <button type="submit" class="button button--primary">
+        {% if mode == 'create' %}Save new employee{% else %}Save changes{% endif %}
+      </button>
+      <a class="button button--ghost"
+         href="{% if mode == 'create' %}/employees{% else %}/employees/{{ employee.id }}{% endif %}">
+        Cancel
+      </a>
+    </div>
+
+    <p class="muted small form__note">
+      Fields marked <span class="req">*</span> are mandatory. The hourly wage must be
+      a positive number between 1.00 and 1000.00.
+    </p>
+  </form>
+</section>
+{% endblock %}

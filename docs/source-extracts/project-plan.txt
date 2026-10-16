@@ -1,0 +1,88 @@
+Document Change Record
+<<<TABLE 1: 5r x 4c>>>
+Date | Version | Author | Comments
+2026.10.13 | 1.0 | Project Team | Initial version of the Project Plan
+ |  |  | 
+ |  |  | 
+ |  |  | 
+<<<END TABLE>>>
+[Heading 1] Definitions,Acronyms and Abbreviations
+<<<TABLE 2: 6r x 2c>>>
+Term | Description
+Fontys | Fontys University of Applied Sciences,the Dutch partner university that supervises this project.
+GIT | A distributed version control system used for team collaboration and versioning of the project.
+GUI | Graphical User Interface.
+URS | User Requirements Specification,the document that describes the design of the product.
+ZZULI | Zhengzhou University of Light Industry,the Chinese partner university that runs this project.
+<<<END TABLE>>>
+[these terms should be ordered alphabetically]
+[Heading 1] Introduction
+[Heading 2] Document Purpose
+This document is the definitive specification of the user requirements for the“Employee Management System”project.It is a primary input to the technical development and the primary specification for the acceptance criteria for those evaluating the outcome after the development has been finalized.This document is intended to be read by all responsible for the management of the development.
+[Heading 2] Document Overview
+[Heading 1] Client
+MeítǐShāngchéng, a new Zhengzhou hardware store funded by parent company Jupiter, identifies employee management as the highest priority of this project, due to Jupiter’s existing difficulties in staff administration.
+Henriette represents the client. While the client envisions a full system with warehouse, statistical and employee web functions for future updates, the current scope focuses on employee management (stock management as an optional secondary task).
+The system needs to support staff CRUD, data statistics and three-shift scheduling. Weekly communication will be maintained through our team representative and supervisors.
+[Heading 1] Team
+The project is carried out by a team of four students from Zhengzhou University of Light Industry(ZZULI),as decided by the ZZULI teacher.The team works together under the supervision of both a Fontys teacher and two ZZULI teachers,who act as senior colleagues and guide the team through roadblocks.All team members contribute to the project from their own device and collaborate through a shared GIT repository.Our team representative,James,is the main contact point for the client.The composition of the team is shown below.
+<<<TABLE 3: 5r x 3c>>>
+Name | ID | Role
+王志远/Morty | 542512320422 | Team Leader
+金俊臣/Dylan | 542512320409 | Member
+王希春/Spring | 542512320421 | Member
+龚俊诚/Jensen | 542512320406 | Member
+<<<END TABLE>>>
+[Heading 1] Current situation
+Ideal Situation
+The joint project by Fontys University of Applied Sciences and ZZULI is undertaken by software engineering students, using Waterfall first and then iterative development. MeítǐShāngchéng plans to launch its first hardware store in Zhengzhou. The ideal situation is to develop a dedicated employee management administrative system. The team will finish planning, design and implementation, presenting the product at the project midpoint and upon completion. The system shall replace unreliable Excel and online calendar tools, supporting employee data and shift management, and allowing future expansion for product management.
+Challenges
+The new store currently has no dedicated management system. Its parent company Jupiter uses general manual administration, with existing stores depending on online calendars and Excel for shift planning. These tools are cumbersome and unreliable for staff management. The main challenges are tracking employees and products, and employee management is the most urgent priority.
+[Heading 1] Problem description
+The main problem that MeítǐShāngchéng’s management faces is that Jupiter’s administration has considerable difficulty managing its employees.At present there is no central system that provides a clear overview of the employees of the new store.Employee data such as name,address and hourly wages is not kept in a single,reliable place,and work shifts are currently planned using online calendars or Excel sheets,which the client describes as too detailed and unreliable.
+As a result,the administration cannot easily add new employees or remove employees who leave the company,cannot obtain a clear overview or statistics of the workforce,and cannot search for specific individuals to view or adjust their information.Assigning work shifts is also a manual and error-prone process,split into Morning,Afternoon and Evening shifts per day.
+The problem is therefore not the lack of a technical solution,but the absence of a reliable and centralised way to manage employee data and work scheduling.
+Problem description:
+The administration of MeítǐShāngchéng lacks a reliable,centralised system to manage employee data and work shifts.
+[Heading 1] Deliverables
+This project will deliver the following products.The documentation listed below supports the process and the acceptance of the system.
+Software:
+•An application,an Employee Management System,that satisfies the client’s requirements for employee management.
+Documentation:
+•A project plan,which defines the scope and the planning of the project.
+•A User Requirements Specification(URS),which describes the design of the product.
+•A test plan for our own project.
+•A test report for the other group’s system.
+[Heading 1] Non-deliverables
+The following features and products are explicitly out of scope for the current project,although the client mentioned them as possible future extensions:
+•Department management:adding and managing departments to organise the shop per department.
+•In-store attendance registration.
+•Product and stock management;this is only considered if the team has additional time.
+•Depot management,including viewing shelf restock requests.
+•A statistics application for management to view statistics on employees,departments and stock.
+•A website for employees to log in,view and adjust their personal information and view their work shifts.
+[Heading 1] Constraints
+The following constraints apply to this project:
+•Team:the project is carried out by a team of four students,as decided by the ZZULI teachers and Fontys teachers.Presence at classes and meetings is mandatory.
+•Methodology:the project must first be executed using the Waterfall methodology,followed by an iterative approach later in the course.
+•Version control:a GIT repository must be created and used;all team members must contribute to the deliverables from their own device.
+•Deliverables:the project plan,URS,test plan and test report must be handed in,together with a working application.
+•Scope:the current project focuses on employee management,which is the client’s highest priority;product stock management is a secondary priority.
+•Schedule:the waterfall part of the project runs from week 4 to week 9,with a mid-term and a final presentation of the product.
+•Supervision:the teachers act as senior colleagues/managers and provide guidance during the weekly contact moments.
+[Heading 1] Phasing
+[Heading 1] Gantt Table depicting our work process
+<<<TABLE 4: 12r x 8c>>>
+Task | Week4 | Week5 | Week6 | Week7 | Week8 | Week9 | Member in charge
+Group getting acquainted & project kick-off | ▲ |  |  |  |  |  | Dylan, Spring, Morty, Jensen
+Prepare questions for Fontys teacher & client requirement discussion | ▲ | ▲ |  |  |  |  | Dylan, Morty (main); Spring, Jensen (review)
+Work on project plan (draft, edit, refine) | ▲ | ▲ | ▲ |  |  |  | Spring, Jensen (main); Dylan, Morty (review)
+Create GIT repository & set branch rules |  | ▲ |  |  |  |  | Dylan, Spring (main); Morty, Jensen (test repo access)
+Create & finish URS (User Requirement Specification) |  |  | ▲ |  |  |  | Morty, Jensen (main); Dylan, Spring (check requirements)
+Create class diagram & system structure design |  |  | ▲ |  |  |  | Dylan, Spring (main); Morty, Jensen (verify logic)
+Implement employee management software solution |  |  |  | ▲ | ▲ |  | all 4 members: split modules Dylan: employee info moduleSpring: shift schedule moduleMorty: database backendJensen: frontend UI
+Create test plan & prepare test cases |  |  |  |  | ▲ |  | Morty, Jensen (main); Dylan, Spring (review test scenarios)
+Mid-term product presentation preparation & demo |  |  |  |  | ▲ |  | Dylan, Spring, Morty, Jensen
+System testing & bug fixing |  |  |  |  | ▲ | ▲ | all 4 members, cross-test each other’s modules
+Final presentation & deliver all documents |  |  |  |  |  | ▲ | Dylan, Spring, Morty, Jensen
+<<<END TABLE>>>

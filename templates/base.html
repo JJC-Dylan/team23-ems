@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }} · MeítǐShāngchéng Employee Management</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="{% if current_user %}app-shell{% else %}app-shell app-shell--anonymous{% endif %}">
+
+{% if current_user %}
+<header class="topbar">
+  <div class="topbar__brand">
+    <span class="brand__mark" aria-hidden="true">M</span>
+    <span class="brand__text">
+      <strong>MeítǐShāngchéng</strong>
+      <small>Employee Management System</small>
+    </span>
+  </div>
+
+  <nav class="topnav" aria-label="Main navigation">
+    <a class="topnav__link {% if path == '/' %}is-active{% endif %}" href="/">Home</a>
+
+    {% if current_user.can_view_employee_directory %}
+      <a class="topnav__link {% if path.startswith('/employees') %}is-active{% endif %}" href="/employees">Employees</a>
+      <a class="topnav__link {% if path == '/shifts' %}is-active{% endif %}" href="/shifts">Store shifts</a>
+      <a class="topnav__link {% if path == '/statistics' %}is-active{% endif %}" href="/statistics">Statistics</a>
+    {% endif %}
+
+    {% if current_user.is_ordinary_employee %}
+      <a class="topnav__link {% if path == '/my-shifts' %}is-active{% endif %}" href="/my-shifts">My work shifts</a>
+    {% endif %}
+  </nav>
+
+  <div class="topbar__account">
+    <span class="role-badge role-badge--{{ role_slug(current_user.role) }}">{{ current_user.role }}</span>
+    <span class="topbar__name">{{ current_user.display_name }}</span>
+    <form method="post" action="/logout" class="inline-form">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <button type="submit" class="button button--ghost button--small">Sign out</button>
+    </form>
+  </div>
+</header>
+{% endif %}
+
+<main class="page">
+  {% if flash_messages %}
+  <div class="flash-stack">
+    {% for message in flash_messages %}
+      <div class="alert alert--{{ message.kind | safe }}" role="status">{{ message.text }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="pagefoot">
+  <span>Team 23 · ZZULI &amp; Fontys · Employee Management System v{{ app_version }}</span>
+  <span>Signed-in users: {{ active_sessions }}</span>
+</footer>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+﻿{% extends 'base.html' %}
+
+{% block content %}
+<div class="pagehead">
+  <div>
+    <h1>Welcome, {{ current_user.display_name }}</h1>
+    <p class="muted">
+      {{ role_descriptions[current_user.role] }}
+    </p>
+  </div>
+  <span class="role-badge role-badge--{{ role_slug(current_user.role) }}">{{ current_user.role }}</span>
+</div>
+
+<section class="kpi-grid">
+  <article class="kpi">
+    <span class="kpi__label">Total employees</span>
+    <span class="kpi__value">{{ total_employees }}</span>
+  </article>
+  <article class="kpi">
+    <span class="kpi__label">Shifts assigned</span>
+    <span class="kpi__value">{{ assigned_total }}</span>
+  </article>
+  <article class="kpi">
+    <span class="kpi__label">Not yet assigned</span>
+    <span class="kpi__value kpi__value--warn">{{ unassigned_total }}</span>
+  </article>
+  <article class="kpi">
+    <span class="kpi__label">Average hourly wage</span>
+    <span class="kpi__value kpi__value--small">{{ average_wage }}</span>
+  </article>
+</section>
+
+<section class="card">
+  <h2>Shift distribution</h2>
+  <div class="shift-bars">
+    {% for name in shift_names %}
+    <div class="shift-bar">
+      <span class="pill pill--{{ name }}">{{ name }}</span>
+      <span class="shift-bar__count">{{ shift_counts[name] }} employee(s)</span>
+    </div>
+    {% endfor %}
+    <div class="shift-bar">
+      <span class="pill pill--Unassigned">Unassigned</span>
+      <span class="shift-bar__count">{{ shift_counts['Unassigned'] }} employee(s)</span>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card__head">
+    <h2>Quick actions</h2>
+  </div>
+  <div class="action-row">
+    <a class="button button--primary" href="/employees">Open employee overview</a>
+    <a class="button" href="/shifts">Store shift overview</a>
+    <a class="button" href="/statistics">Statistics</a>
+    {% if current_user.can_manage_employees %}
+      <a class="button button--accent" href="/employees/new">Add new employee</a>
+    {% endif %}
+  </div>
+  {% if not current_user.can_manage_employees %}
+    <p class="muted small">
+      Your Supervisor role may assign work shifts from an employee's detail page
+      and may not create, edit or delete employee records.
+    </p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="card__head">
+    <h2>Recently added employees</h2>
+    <a class="link" href="/employees">View all</a>
+  </div>
+  {% if recent_employees %}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Address</th>
+        <th class="num">Hourly wage</th>
+        <th>Shift</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for employee in recent_employees %}
+      <tr>
+        <td><a class="link" href="/employees/{{ employee.id }}">{{ employee.name }}</a></td>
+        <td class="muted">{{ employee.address }}</td>
+        <td class="num">{{ format_currency(employee.hourly_wage) }}</td>
+        <td>
+          <span class="pill pill--{{ employee.shift_name or 'Unassigned' }}">
+            {{ employee.shift_name or 'Unassigned' }}
+          </span>
+        </td>      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No employee data available.</p>
+  {% endif %}
+</section>
+{% endblock %}

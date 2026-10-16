@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="pagehead">
+  <div>
+    <h1>My work shifts</h1>
+    <p class="muted">
+      You can view only your own assigned work shifts. Morning, Afternoon and
+      Evening are the three fixed shifts of the store.
+    </p>
+  </div>
+  <span class="role-badge role-badge--ordinary-employee">Ordinary Employee</span>
+</div>
+
+{% if not profile_linked %}
+  <div class="alert alert--info">
+    Your login account is not linked to an employee record yet, so no schedule
+    can be shown. Please ask Human Resources to link your account.
+  </div>
+{% elif not employee %}
+  <div class="alert alert--info">
+    Your employee record could not be found. Please contact Human Resources.
+  </div>
+{% else %}
+
+<section class="card">
+  <div class="card__head">
+    <h2>{{ employee.name }}</h2>
+    <span class="muted small">Employee number {{ employee.id }}</span>
+  </div>
+
+  <dl class="detail-grid">
+    <div><dt>Address</dt><dd>{{ employee.address }}</dd></div>
+    <div><dt>Hourly wage</dt><dd>{{ hourly_wage_text }}</dd></div>
+    <div><dt>Hired on</dt><dd>{{ employee.hired_on or 'Not recorded' }}</dd></div>
+  </dl>
+</section>
+
+<section class="card">
+  <h2>Assigned work shifts</h2>
+  {% if shift_row %}
+    <table class="table">
+      <thead>
+        <tr><th>Shift</th><th>Assigned on</th><th>Assigned by</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="pill pill--{{ shift_row.shift_name }}">{{ shift_row.shift_name }}</span></td>
+          <td>{{ shift_row.assigned_at }}</td>
+          <td>{{ shift_row.assigned_by }}</td>
+        </tr>
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">You have not been assigned any shifts yet.</p>
+  {% endif %}
+
+  <p class="muted small">
+    Shift assignment is performed by your Store Supervisor. If a shift looks
+    wrong, please contact the supervisor rather than changing it here.
+  </p>
+</section>
+
+{% endif %}
+{% endblock %}

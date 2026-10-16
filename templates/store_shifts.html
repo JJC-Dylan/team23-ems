@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="pagehead">
+  <div>
+    <h1>Store shift overview</h1>
+    <p class="muted">
+      Every employee of MeítǐShāngchéng with the work shift assigned to them.
+      Shift assignment itself is performed from an employee's detail page by the
+      Store Supervisor.
+    </p>
+  </div>
+  <span class="notice notice--readonly">Read-only overview</span>
+</div>
+
+<section class="kpi-grid kpi-grid--compact">
+  {% for name in shift_names %}
+  <article class="kpi kpi--{{ name }}">
+    <span class="kpi__label">{{ name }}</span>
+    <span class="kpi__value">{{ counts[name] }}</span>
+  </article>
+  {% endfor %}
+  <article class="kpi kpi--unassigned">
+    <span class="kpi__label">Unassigned</span>
+    <span class="kpi__value">{{ counts['Unassigned'] }}</span>
+  </article>
+  <article class="kpi">
+    <span class="kpi__label">Employees in total</span>
+    <span class="kpi__value">{{ total_employees }}</span>
+  </article>
+</section>
+
+<section class="card">
+  <form class="filter-bar" method="get" action="/shifts">
+    <div class="filter-bar__field filter-bar__field--grow">
+      <label for="q">Find employee</label>
+      <input id="q" name="q" type="search" value="{{ query }}" placeholder="Employee name">
+    </div>
+    <div class="filter-bar__field">
+      <label for="shift">Shift</label>
+      <select id="shift" name="shift">
+        <option value="">All shifts</option>
+        {% for name in shift_names %}
+          <option value="{{ name }}" {% if shift_filter == name %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+        <option value="Unassigned" {% if shift_filter == 'Unassigned' %}selected{% endif %}>Unassigned</option>
+      </select>
+    </div>
+    <div class="filter-bar__actions">
+      <button type="submit" class="button button--primary">Apply</button>
+      <a class="button button--ghost" href="/shifts">Reset</a>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <div class="card__head">
+    <h2>{{ rows | length }} employee(s) listed</h2>
+    {% if current_user.can_assign_shifts %}
+      <span class="muted small">
+        To change a shift, open the employee record and use the shift-assignment panel.
+      </span>
+    {% endif %}
+  </div>
+
+  {% if rows %}
+  <div class="table-scroll">
+    <table class="table table--hover">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Assigned shift</th>
+          <th>Assigned on</th>
+          <th>Assigned by</th>
+          <th class="actions-col">Record</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>
+            <a class="link link--strong" href="/employees/{{ row.id }}">{{ row.name }}</a>
+            <span class="muted small">#{{ row.id }}</span>
+          </td>
+          <td>
+            <span class="pill pill--{{ row.shift_name or 'Unassigned' }}">
+              {{ row.shift_name or 'Unassigned' }}
+            </span>
+          </td>
+          <td class="muted">{{ row.shift_assigned_at or '—' }}</td>
+          <td class="muted">{{ row.shift_assigned_by or '—' }}</td>
+          <td class="actions-col">
+            <a class="button button--ghost button--small" href="/employees/{{ row.id }}">Open</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    {% if query or shift_filter %}
+      <p class="empty">No employee matches the current filter.</p>
+    {% else %}
+      <p class="empty">No employee data available.</p>
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}
