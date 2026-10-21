@@ -26,3 +26,6 @@ data/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# --- Office lock files (Excel/Word create ~$ while a file is open) -------
+~$*

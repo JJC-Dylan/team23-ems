@@ -3,7 +3,7 @@
 Run with the bundled Python:
     python docs/tools/make_test_plan.py
 
-Writes "Test Plan-Team 23.docx" into the course deliverables folder and a copy
+Writes "Test Plan-Team23-1.1.docx" into the course deliverables folder and a copy
 next to the project. The content mirrors the tests that actually exist in
 tests/ and the two verification scripts, so the document stays truthful.
 """
@@ -27,7 +27,7 @@ PROJECT_DOCS_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
 
-OUTPUT_NAME = "Test Plan-Team 23.docx"
+OUTPUT_NAME = "Test Plan-Team23-1.1.docx"
 
 #: Printable width of the page in centimetres (A4 portrait minus 2 cm margins).
 PRINTABLE_WIDTH_CM = 17.0
