@@ -5,27 +5,44 @@ Route map
 ======================  ====================  ===========================
 Address                 Roles                 Requirement
 ======================  ====================  ===========================
-``/``                   any signed-in user    role-aware home page
+``/``                   any signed-in user    home; staff see the searchable
+                                              Employee Overview table (FR05),
+                                              an employee sees their own week
 ``/login``              anonymous             Login View
 ``/logout``             any signed-in user    ends the session
-``/employees``          HR, Supervisor        Employee Overview View (FR05)
 ``/employees/new``      HR                    add employee (FR01)
-``/employees/<id>``     HR, Supervisor        detail + shift panel (FR04, FR07)
+``/employees/<id>``     HR, Supervisor        detail + rota panel (FR04, FR07)
 ``/employees/<id>/edit``HR                    edit employee (FR03)
 ``/employees/<id>/delete`` HR                 delete employee (FR02)
-``/employees/<id>/shift``  Supervisor        assign shift (FR06, FR10)
-``/shifts``             HR, Supervisor        Full-Store Shift Overview (FR08)
-``/my-shifts``          Ordinary Employee     My Work Shifts (FR07)
-``/statistics``         HR, Supervisor        totals (FR13)
+``/employees/<id>/shift``  Supervisor        add a shift to the rota (FR06, FR10)
+``/employees/<id>/shift/remove`` Supervisor   remove one rota row (FR06)
+``/shifts``             HR, Supervisor        weekly store rota (FR08)
+``/my-shifts``          Ordinary Employee     personal weekly timetable (FR07)
+``/statistics``         HR, Supervisor        weekly totals (FR13)
 ``/healthz``            anonymous             liveness probe
 ======================  ====================  ===========================
 
-The decorative separators in the table above are intentionally ASCII so the
-file stays readable in any editor or console.
+Weekly views
+------------
+Every weekly screen accepts ``?week=YYYY-MM-DD``: any day of the wanted week
+is enough, it is converted to that week's Monday. Without the parameter the
+current week is shown. Each view offers previous/next week links, so a schedule
+can be looked at without typing a URL.
+
+The three roles deliberately see three different shapes of the same data:
+
+* Ordinary Employee — a personal timetable (rows = shifts, columns = days).
+* Supervisor — the whole shop grouped by day: who works which shift today.
+* HR — the whole shop grouped by employee: what each person works this week.
+
+Only the employee detail page changes the rota, so nobody edits the schedule by
+accident from an overview.
 """
 
 from __future__ import annotations
 
+import urllib.parse
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from . import repositories as repo
@@ -34,9 +51,12 @@ from .database import (
     ROLE_HR,
     ROLE_SUPERVISOR,
     SHIFTS,
+    WEEKDAYS,
+    shift_window,
 )
 from .errors import HttpError
 from .htmlpages import (
+    DATE_RE,
     ValidationError,
     format_currency,
     format_wage,
@@ -54,10 +74,126 @@ SUPERVISOR_ONLY = (ROLE_SUPERVISOR,)
 EMPLOYEE_ONLY = (ROLE_EMPLOYEE,)
 ANY_ROLE = (ROLE_HR, ROLE_SUPERVISOR, ROLE_EMPLOYEE)
 
+#: Shift name and time window, for every select box and legend in the GUI.
+SHIFT_OPTIONS: tuple[dict[str, str], ...] = tuple(
+    {"name": name, "time": shift_window(name)} for name in SHIFTS
+)
+
 
 def _app(request: "_Request") -> "Application":
     """The running application, published in the WSGI environment."""
     return request.environ["ems.app"]
+
+
+# --------------------------------------------------------------------------
+# Weekly helpers
+# --------------------------------------------------------------------------
+
+
+def _week_from_request(request: _Request) -> str:
+    """The Monday of the week asked for by ``?week=`` (default: current week).
+
+    Any day of the week is accepted, and an unreadable value falls back to the
+    current week rather than showing an error: a mistyped link must never leave
+    the user with a blank page.
+    """
+    return repo.week_dates(request.get("week"))[0]
+
+
+def _with_query(path: str, **params: str) -> str:
+    """Build a URL, dropping empty parameters so links stay readable."""
+    clean = {key: value for key, value in params.items() if value}
+    query = urllib.parse.urlencode(clean)
+    return f"{path}?{query}" if query else path
+
+
+def _week_context(
+    week_start: str, base_path: str, extra: dict[str, str] | None = None
+) -> dict[str, Any]:
+    """Everything a template needs to draw a week header and its navigation."""
+    dates = repo.week_dates(week_start)
+    monday = date.fromisoformat(dates[0])
+    sunday = date.fromisoformat(dates[-1])
+    today = date.today()
+    extra = extra or {}
+
+    week_days = []
+    for index, iso in enumerate(dates):
+        current = date.fromisoformat(iso)
+        week_days.append(
+            {
+                "date": iso,
+                "weekday": WEEKDAYS[index],
+                "day": current.day,
+                "month": current.strftime("%b"),
+                "is_today": current == today,
+            }
+        )
+
+    return {
+        "week_start": dates[0],
+        "week_end": dates[-1],
+        "week": week_days,
+        "week_label": f"{monday:%d %b %Y} – {sunday:%d %b %Y}",
+        "is_current_week": dates[0] == repo.week_dates()[0],
+        "today": today.isoformat(),
+        "week_prev_url": _with_query(
+            base_path, week=(monday - timedelta(days=7)).isoformat(), **extra
+        ),
+        "week_next_url": _with_query(
+            base_path, week=(monday + timedelta(days=7)).isoformat(), **extra
+        ),
+        "week_this_url": _with_query(base_path, **extra),
+    }
+
+
+def _day_label(iso_date: str) -> str:
+    """``2026-10-19`` -> ``Mon 19 Oct 2026`` for confirmation messages."""
+    try:
+        value = date.fromisoformat(iso_date)
+    except ValueError:
+        return iso_date
+    return f"{WEEKDAYS[value.weekday()]} {value:%d %b %Y}"
+
+
+def _parse_work_date(text: str) -> str | None:
+    """Validate a ``YYYY-MM-DD`` form value; ``None`` when unusable."""
+    text = (text or "").strip()
+    if not DATE_RE.match(text):
+        return None
+    try:
+        return date.fromisoformat(text).isoformat()
+    except ValueError:
+        return None
+
+
+def _timetable_rows(
+    shifts_by_date: dict[str, list[str]], week: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Turn ``{date: [shift, ...]}`` into the grid rows of the timetable.
+
+    One row per fixed shift; one cell per day, marked when that shift is worked.
+    """
+    rows: list[dict[str, Any]] = []
+    for shift_name in SHIFTS:
+        cells = [
+            {
+                "date": day["date"],
+                "weekday": day["weekday"],
+                "assigned": shift_name in shifts_by_date.get(day["date"], []),
+                "is_today": day["is_today"],
+            }
+            for day in week
+        ]
+        rows.append(
+            {
+                "shift": shift_name,
+                "time": shift_window(shift_name),
+                "cells": cells,
+                "assigned_count": sum(1 for cell in cells if cell["assigned"]),
+            }
+        )
+    return rows
 
 
 # --------------------------------------------------------------------------
@@ -73,7 +209,6 @@ def register(app: Application) -> None:
     app.route("/logout", methods=("GET", "POST"), roles=ANY_ROLE)(logout)
     app.route("/", roles=ANY_ROLE)(home)
 
-    app.route("/employees", roles=HR_AND_SUPERVISOR)(employee_overview)
     app.route("/employees/new", methods=("GET", "POST"), roles=HR_ONLY)(employee_create)
     app.route(r"/employees/(?P<employee_id>\d+)", roles=HR_AND_SUPERVISOR)(employee_detail)
     app.route(
@@ -85,6 +220,11 @@ def register(app: Application) -> None:
     app.route(
         r"/employees/(?P<employee_id>\d+)/shift", methods=("POST",), roles=SUPERVISOR_ONLY
     )(employee_assign_shift)
+    app.route(
+        r"/employees/(?P<employee_id>\d+)/shift/remove",
+        methods=("POST",),
+        roles=SUPERVISOR_ONLY,
+    )(employee_clear_shift)
 
     app.route("/shifts", roles=HR_AND_SUPERVISOR)(store_shifts)
     app.route("/my-shifts", roles=EMPLOYEE_ONLY)(my_shifts)
@@ -122,11 +262,11 @@ def login(request: _Request, response: _Response) -> None:
                 error = "Username or password is incorrect. Please try again."
             else:
                 session = _app(request).sessions.create(row)
-                # URS 7: the flow starts from Login and then branches by role.
+                # URS 7: the flow starts from Login, enters the System Home
+                # Page and branches by role from there, so every role lands on
+                # "/" and the home page decides what it shows.
                 destination = "/"
-                if session.is_ordinary_employee:
-                    destination = "/my-shifts"
-                elif next_path not in ("/", "/login"):
+                if next_path not in ("/", "/login"):
                     destination = next_path
                 response.set_cookie(SESSION_COOKIE_NAME, session.token, max_age=8 * 60 * 60)
                 response.redirect(destination)
@@ -166,20 +306,57 @@ def home(request: _Request, response: _Response) -> None:
     context: dict[str, Any] = {"page_title": "Home", "session_role": session.role}
 
     if session.is_ordinary_employee:
-        context.update(_own_shift_context(app, session))
+        context.update(_own_week_context(app, session, repo.week_dates()[0]))
         response.html(app.render(request, "home_employee.html", **context))
         return
 
-    employees = repo.search_employees(app.db_path)
-    shift_counts = repo.shift_summary_counts(employees)
+    week_start = repo.week_dates()[0]
+    week = _week_context(week_start, "/shifts")
+
+    # The staff home page carries the searchable employee table itself, so it
+    # accepts the same filters as the Employee Overview view (FR04, FR05, FR12).
+    query = request.get("q").strip()
+    shift_filter = request.get("shift").strip()
+    if shift_filter not in (*SHIFTS, "Unassigned"):
+        shift_filter = ""
+    sort = request.get("sort", "name").strip()
+    wage_min_text = request.get("wage_min").strip()
+    wage_max_text = request.get("wage_max").strip()
+    wage_min, wage_max, filter_problem = validate_wage_range(wage_min_text, wage_max_text)
+
+    employees = repo.search_employees(
+        app.db_path,
+        query=query,
+        wage_min=wage_min,
+        wage_max=wage_max,
+        shift=shift_filter,
+        sort=sort,
+        week_start=week_start,
+    )
+    shift_counts = repo.week_summary_counts(app.db_path, week_start)
     context.update(
         {
-            "total_employees": len(employees),
+            "total_employees": repo.count_employees(app.db_path),
+            "result_count": len(employees),
+            "employees": employees,
             "shift_counts": shift_counts,
-            "assigned_total": sum(shift_counts.get(name, 0) for name in SHIFTS),
-            "unassigned_total": shift_counts.get("Unassigned", 0),
+            "shift_people": repo.employee_counts_per_shift(app.db_path, week_start),
+            "assigned_total": shift_counts["Total"],
+            "unassigned_total": repo.count_employees_without_week_shifts(
+                app.db_path, week_start
+            ),
             "average_wage": format_currency(repo.average_hourly_wage(app.db_path)),
-            "recent_employees": employees[:5],
+            "week": week,
+            "week_label": week["week_label"],
+            "shift_options": SHIFT_OPTIONS,
+            "format_currency": format_currency,
+            "can_manage": session.can_manage_employees,
+            "query": query,
+            "shift_filter": shift_filter,
+            "sort": sort,
+            "wage_min": wage_min_text,
+            "wage_max": wage_max_text,
+            "filter_problem": filter_problem,
         }
     )
     response.html(app.render(request, "home_staff.html", **context))
@@ -190,55 +367,8 @@ def home(request: _Request, response: _Response) -> None:
 # --------------------------------------------------------------------------
 
 
-def employee_overview(request: _Request, response: _Response) -> None:
-    """Employee Overview View: searchable table with role-dependent actions."""
-    app: Application = _app(request)
-    session = request.session
-    assert session is not None
-
-    query = request.get("q").strip()
-    shift_filter = request.get("shift").strip()
-    if shift_filter not in (*SHIFTS, "Unassigned"):
-        shift_filter = ""
-    sort = request.get("sort", "name").strip()
-    wage_min_text = request.get("wage_min").strip()
-    wage_max_text = request.get("wage_max").strip()
-
-    wage_min, wage_max, filter_problem = validate_wage_range(wage_min_text, wage_max_text)
-
-    employees = repo.search_employees(
-        app.db_path,
-        query=query,
-        wage_min=wage_min,
-        wage_max=wage_max,
-        shift=shift_filter,
-        sort=sort,
-    )
-    total_employees = repo.count_employees(app.db_path)
-
-    response.html(
-        app.render(
-            request,
-            "employees_overview.html",
-            page_title="Employees",
-            employees=employees,
-            result_count=len(employees),
-            total_employees=total_employees,
-            query=query,
-            shift_filter=shift_filter,
-            sort=sort,
-            wage_min=wage_min_text,
-            wage_max=wage_max_text,
-            filter_problem=filter_problem,
-            can_manage=session.can_manage_employees,
-            shift_counts=repo.shift_summary_counts(employees),
-            format_currency=format_currency,
-        )
-    )
-
-
 def employee_detail(request: _Request, response: _Response) -> None:
-    """Employee Detail View with the shift-assignment panel for Supervisors."""
+    """Employee Detail View with the rota panel for Supervisors."""
     app: Application = _app(request)
     session = request.session
     assert session is not None
@@ -252,17 +382,28 @@ def employee_detail(request: _Request, response: _Response) -> None:
             "That employee record does not exist. It may have been deleted.",
         )
 
-    shift_row = repo.get_employee_shift(app.db_path, employee_id)
+    week_start = _week_from_request(request)
+    week = _week_context(week_start, f"/employees/{employee_id}")
+    rota = repo.employee_week_rows(app.db_path, employee_id, week_start)
+    form_date = week["today"] if week["today"] in {
+        day["date"] for day in week["week"]
+    } else week["week_start"]
+
     response.html(
         app.render(
             request,
             "employee_detail.html",
             page_title=str(employee["name"]),
             employee=employee,
-            shift_row=shift_row,
+            rota=rota,
+            shift_count=len(rota),
             hourly_wage_text=format_currency(employee["hourly_wage"]),
             can_edit=session.can_manage_employees,
             can_assign=session.can_assign_shifts,
+            shift_options=SHIFT_OPTIONS,
+            form_date=form_date,
+            week=week,
+            week_label=week["week_label"],
             form={},
             errors={},
         )
@@ -386,7 +527,7 @@ def employee_edit(request: _Request, response: _Response) -> None:
 
 
 def employee_delete(request: _Request, response: _Response) -> None:
-    """FR02: HR deletes a record; linked shift rows cascade (Use Case 5).
+    """FR02: HR deletes a record; linked rota rows cascade (Use Case 5).
 
     The confirmation dialog lives in the overview page, so by the time this
     handler runs the user has already confirmed. Cancelling simply never
@@ -403,25 +544,31 @@ def employee_delete(request: _Request, response: _Response) -> None:
         )
 
     name = str(employee["name"])
-    shift_was_assigned = employee["shift_name"] is not None
+    shifts_planned = sum(
+        len(names) for names in repo.employee_week_shifts(app.db_path, employee_id).values()
+    )
     repo.delete_employee(app.db_path, employee_id)
     detail = (
-        "; the linked shift assignment was removed as well" if shift_was_assigned else ""
+        f"; the {shifts_planned} rota row(s) of this employee were removed as well"
+        if shifts_planned
+        else ""
     )
     request.flash(f"Employee {name} was deleted{detail}.", "success")
-    response.redirect("/employees")
+    response.redirect("/")
 
 
 # --------------------------------------------------------------------------
-# Shifts
+# Shifts (dated weekly rota)
 # --------------------------------------------------------------------------
 
 
 def employee_assign_shift(request: _Request, response: _Response) -> None:
-    """FR06/FR10: a Supervisor manually assigns Morning, Afternoon or Evening.
+    """FR06/FR10: a Supervisor puts one employee into one shift on one day.
 
-    Extension 1A of URS Use Case 2: when the target record cannot be found the
-    system reports it and returns to the employee overview.
+    The form carries a date and a shift, so the same employee may be given a
+    second shift on the same day. Extension 1A of URS Use Case 2: when the
+    target record cannot be found the system reports it and returns to the
+    employee overview on the home page.
     """
     app: Application = _app(request)
     session = request.session
@@ -431,86 +578,189 @@ def employee_assign_shift(request: _Request, response: _Response) -> None:
     employee = repo.get_employee(app.db_path, employee_id)
     if employee is None:
         request.flash("That employee record could not be found.", "error")
-        response.redirect("/employees")
+        response.redirect("/")
         return
 
-    choice = request.form_value("shift_name")
-    if choice == "Unassigned":
-        repo.clear_shift(app.db_path, employee_id, session.display_name)
-        request.flash(f"Shift assignment removed for {employee['name']}.", "success")
-    elif choice in SHIFTS:
-        repo.assign_shift(app.db_path, employee_id, choice, session.display_name)
+    work_date = _parse_work_date(request.form_value("work_date"))
+    choice = request.form_value("shift_name").strip()
+    anchor = f"/employees/{employee_id}"
+
+    if work_date is None:
         request.flash(
-            f"{employee['name']} is now assigned to the {choice} shift.", "success"
+            "Please choose the working date for this shift. Nothing was changed.",
+            "error",
         )
-    else:
+        response.redirect(anchor)
+        return
+    if choice not in SHIFTS:
         request.flash(
             "Please choose Morning, Afternoon or Evening. Nothing was changed.", "error"
         )
-    response.redirect(f"/employees/{employee_id}")
+        response.redirect(f"{anchor}?week={work_date}")
+        return
+
+    repo.assign_shift(app.db_path, employee_id, work_date, choice, session.display_name)
+    request.flash(
+        f"{employee['name']} now works the {choice} shift "
+        f"({shift_window(choice)}) on {_day_label(work_date)}.",
+        "success",
+    )
+    response.redirect(f"{anchor}?week={work_date}")
+
+
+def employee_clear_shift(request: _Request, response: _Response) -> None:
+    """FR06: remove exactly one rota row (one employee, one day, one shift)."""
+    app: Application = _app(request)
+
+    employee_id = request.path_id()
+    employee = repo.get_employee(app.db_path, employee_id)
+    if employee is None:
+        request.flash("That employee record could not be found.", "error")
+        response.redirect("/")
+        return
+
+    work_date = _parse_work_date(request.form_value("work_date"))
+    choice = request.form_value("shift_name").strip()
+    anchor = f"/employees/{employee_id}"
+
+    if work_date is None or choice not in SHIFTS:
+        request.flash(
+            "That rota entry could not be identified, so nothing was removed.", "error"
+        )
+        response.redirect(anchor)
+        return
+
+    if repo.clear_shift(app.db_path, employee_id, work_date, choice):
+        request.flash(
+            f"The {choice} shift of {employee['name']} on {_day_label(work_date)} "
+            "was removed.",
+            "success",
+        )
+    else:
+        request.flash(
+            f"There was no {choice} shift for {employee['name']} on "
+            f"{_day_label(work_date)}.",
+            "error",
+        )
+    response.redirect(f"{anchor}?week={work_date}")
 
 
 def store_shifts(request: _Request, response: _Response) -> None:
-    """FR08: the full-store work-shift overview for HR and Supervisor.
+    """FR08: the weekly store rota for HR and Supervisor.
 
-    URS 6 states that shift-modification controls are hidden here; assignment
-    happens from the employee detail panel, so this page only reads.
+    Both roles read the same data but see a different shape, as confirmed with
+    the client: the Supervisor reads the week day by day ("who is in today"),
+    HR reads it employee by employee ("what does this person work this week")
+    and may filter. URS 6 states that shift-modification controls are hidden
+    here; the rota is changed from the employee detail page only.
     """
-    app: Application = _app(request)
-
-    shift_filter = request.get("shift").strip()
-    if shift_filter not in (*SHIFTS, "Unassigned"):
-        shift_filter = ""
-    query = request.get("q").strip()
-
-    rows = repo.store_shift_overview(app.db_path)
-    if query:
-        needle = query.casefold()
-        rows = [row for row in rows if needle in str(row["name"]).casefold()]
-    if shift_filter:
-        rows = [
-            row
-            for row in rows
-            if (row["shift_name"] or "Unassigned") == shift_filter
-        ]
-
-    response.html(
-        app.render(
-            request,
-            "store_shifts.html",
-            page_title="Store shift overview",
-            rows=rows,
-            shift_filter=shift_filter,
-            query=query,
-            counts=repo.shift_summary_counts(rows),
-            total_employees=repo.count_employees(app.db_path),
-        )
-    )
-
-
-def my_shifts(request: _Request, response: _Response) -> None:
-    """FR07: an Ordinary Employee views only their own assigned shifts."""
     app: Application = _app(request)
     session = request.session
     assert session is not None
-    context = _own_shift_context(app, session)
+
+    week_start = _week_from_request(request)
+    query = request.get("q").strip()
+    shift_filter = request.get("shift").strip()
+    if shift_filter not in (*SHIFTS, "Unassigned"):
+        shift_filter = ""
+
+    extra = {"shift": shift_filter, "q": query}
+    week = _week_context(week_start, "/shifts", extra)
+    counts = repo.week_summary_counts(app.db_path, week_start)
+
+    context: dict[str, Any] = {
+        "page_title": "Store shift overview",
+        "week": week,
+        "week_label": week["week_label"],
+        "counts": counts,
+        "total_employees": repo.count_employees(app.db_path),
+        "unassigned_total": repo.count_employees_without_week_shifts(
+            app.db_path, week_start
+        ),
+        "query": query,
+        "shift_filter": shift_filter,
+        "shift_options": SHIFT_OPTIONS,
+        "is_supervisor_view": session.is_supervisor,
+        "days": [],
+        "employees": [],
+        "listed_count": 0,
+    }
+
+    if session.is_supervisor:
+        # Day-by-day overview: the Supervisor reads the week as "who is in
+        # which shift today", so no filtering is offered here.
+        days = repo.day_roster(app.db_path, week_start)
+        context["days"] = days
+        context["listed_count"] = sum(day["total"] for day in days)
+    else:
+        roster = repo.employee_roster(app.db_path, week_start)
+        if query:
+            needle = query.casefold()
+            roster = [person for person in roster if needle in person["name"].casefold()]
+        if shift_filter == "Unassigned":
+            roster = [person for person in roster if person["shift_count"] == 0]
+        elif shift_filter:
+            roster = [
+                person
+                for person in roster
+                if any(shift_filter in names for names in person["days"].values())
+            ]
+        context["employees"] = roster
+        context["listed_count"] = len(roster)
+
+    response.html(app.render(request, "store_shifts.html", **context))
+
+
+def my_shifts(request: _Request, response: _Response) -> None:
+    """FR07: an Ordinary Employee views only their own weekly timetable."""
+    app: Application = _app(request)
+    session = request.session
+    assert session is not None
+
+    week_start = _week_from_request(request)
+    context = _own_week_context(app, session, week_start)
     context["page_title"] = "My work shifts"
+    context["shift_options"] = SHIFT_OPTIONS
     response.html(app.render(request, "my_shifts.html", **context))
 
 
-def _own_shift_context(app: Application, session) -> dict[str, Any]:
-    """Shift information for the signed-in Ordinary Employee."""
+def _own_week_context(
+    app: Application, session, week_start: str
+) -> dict[str, Any]:
+    """The signed-in Ordinary Employee's own timetable for one week."""
+    week = _week_context(week_start, "/my-shifts")
+    context: dict[str, Any] = {
+        "employee": None,
+        "profile_linked": False,
+        "week": week,
+        "week_label": week["week_label"],
+        "timetable": [],
+        "rota": [],
+        "shift_count": 0,
+    }
     if session.employee_id is None:
-        return {"employee": None, "shift_row": None, "profile_linked": False}
+        return context
+
     employee = repo.get_employee(app.db_path, session.employee_id)
     if employee is None:
-        return {"employee": None, "shift_row": None, "profile_linked": False}
-    return {
-        "employee": employee,
-        "shift_row": repo.get_employee_shift(app.db_path, session.employee_id),
-        "profile_linked": True,
-        "hourly_wage_text": format_currency(employee["hourly_wage"]),
-    }
+        return context
+
+    shifts_by_date = repo.employee_week_shifts(
+        app.db_path, session.employee_id, week["week_start"]
+    )
+    context.update(
+        {
+            "employee": employee,
+            "profile_linked": True,
+            "hourly_wage_text": format_currency(employee["hourly_wage"]),
+            "timetable": _timetable_rows(shifts_by_date, week["week"]),
+            "rota": repo.employee_week_rows(
+                app.db_path, session.employee_id, week["week_start"]
+            ),
+            "shift_count": sum(len(names) for names in shifts_by_date.values()),
+        }
+    )
+    return context
 
 
 # --------------------------------------------------------------------------
@@ -519,10 +769,13 @@ def _own_shift_context(app: Application, session) -> dict[str, Any]:
 
 
 def statistics(request: _Request, response: _Response) -> None:
-    """A simple total-employee-count statistic plus shift distribution."""
+    """Weekly totals: who works how much in the week being looked at."""
     app: Application = _app(request)
-    employees = repo.search_employees(app.db_path)
-    shift_counts = repo.shift_summary_counts(employees)
+
+    week_start = _week_from_request(request)
+    week = _week_context(week_start, "/statistics")
+    employees = repo.search_employees(app.db_path, week_start=week_start)
+    shift_counts = repo.week_summary_counts(app.db_path, week_start)
     wages = [float(row["hourly_wage"]) for row in employees]
 
     response.html(
@@ -530,14 +783,20 @@ def statistics(request: _Request, response: _Response) -> None:
             request,
             "statistics.html",
             page_title="Statistics",
+            week=week,
+            week_label=week["week_label"],
             total_employees=len(employees),
             shift_counts=shift_counts,
-            assigned_total=sum(shift_counts.get(name, 0) for name in SHIFTS),
-            unassigned_total=shift_counts.get("Unassigned", 0),
+            assigned_total=shift_counts["Total"],
+            unassigned_total=repo.count_employees_without_week_shifts(
+                app.db_path, week_start
+            ),
             average_wage=format_currency(repo.average_hourly_wage(app.db_path)),
             lowest_wage=format_currency(min(wages)) if wages else "Not set",
             highest_wage=format_currency(max(wages)) if wages else "Not set",
             wage_bill=format_currency(sum(wages)) if wages else "Not set",
             employees=employees,
+            shift_options=SHIFT_OPTIONS,
+            format_currency=format_currency,
         )
     )

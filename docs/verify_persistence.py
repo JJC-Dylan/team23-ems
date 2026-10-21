@@ -5,12 +5,13 @@ This script manages the server itself, so it exercises the actual artefact:
     python docs/verify_persistence.py
 
 It starts ``app.py`` on a scratch port and database, writes an employee and a
-shift assignment, stops the process, starts a fresh one over the same database,
-and checks that both the record and the shift are still there.
+dated rota row, stops the process, starts a fresh one over the same database,
+and checks that both the record and the rota row are still there.
 """
 
 from __future__ import annotations
 
+import datetime
 import http.cookiejar
 import os
 import re
@@ -27,6 +28,10 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = 8142
 BASE = f"http://127.0.0.1:{PORT}"
 TOKEN_RE = re.compile(r'name="_csrf_token"\s+value="([^"]*)"')
+
+#: Monday of the current week; the weekly rota is keyed by date.
+TODAY = datetime.date.today()
+MONDAY = (TODAY - datetime.timedelta(days=TODAY.weekday())).isoformat()
 
 
 class Browser:
@@ -114,7 +119,7 @@ def main() -> int:
         # ---- first run: write an employee and assign a shift ------------
         process = start_server(db_path)
         browser = Browser()
-        browser.sign_in("hr", "hr123", "/employees")
+        browser.sign_in("hr", "hr123", "/")
         created = browser.post(
             "/employees/new",
             {
@@ -130,13 +135,16 @@ def main() -> int:
         check("first run: employee created", bool(employee_id) and "Persisted Person" in created)
 
         supervisor = Browser()
-        supervisor.sign_in("supervisor", "super123", "/employees")
+        supervisor.sign_in("supervisor", "super123", "/")
         panel = supervisor.get(f"/employees/{employee_id}")
         token = TOKEN_RE.search(panel)
         if token:
             supervisor.csrf = token.group(1)
-        assigned = supervisor.post(f"/employees/{employee_id}/shift", {"shift_name": "Evening"})
-        check("first run: shift assigned", "Evening" in assigned)
+        assigned = supervisor.post(
+            f"/employees/{employee_id}/shift",
+            {"work_date": MONDAY, "shift_name": "Evening"},
+        )
+        check("first run: shift planned on a date", "Evening" in assigned and MONDAY in assigned)
 
         stop_server(process)
         process = None
@@ -145,17 +153,20 @@ def main() -> int:
         # ---- second run: same database file, fresh process --------------
         process = start_server(db_path)
         again = Browser()
-        again.sign_in("hr", "hr123", "/employees")
-        listing = again.get("/employees?q=Persisted")
+        again.sign_in("hr", "hr123", "/")
+        listing = again.get("/?q=Persisted")
         check(
             "employee survived the restart (NFR03)",
             "Persisted Person" in listing and "27.75" in listing,
         )
 
-        detail = again.get(f"/employees/{employee_id}")
-        check("shift assignment survived the restart (NFR03)", "Evening" in detail)
+        detail = again.get(f"/employees/{employee_id}?week={MONDAY}")
+        check(
+            "rota row survived the restart (NFR03)",
+            "Evening" in detail and MONDAY in detail,
+        )
 
-        seeded_again = again.get("/employees")
+        seeded_again = again.get("/")
         total = re.search(r"of (\d+) in total", seeded_again)
         check(
             "demonstration data was not duplicated on restart",

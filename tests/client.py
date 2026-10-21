@@ -143,10 +143,10 @@ class TestClient:
         # The login page has no session yet, so its token field is empty; the
         # authenticated home page has no form at all. Read a real token from the
         # employee overview, which every non-employee role may open.
-        self.refresh_csrf(routes=("/employees", "/my-shifts", "/"))
+        self.refresh_csrf(routes=("/", "/my-shifts"))
         return response
 
-    def refresh_csrf(self, routes: tuple[str, ...] = ("/employees", "/my-shifts", "/")) -> None:
+    def refresh_csrf(self, routes: tuple[str, ...] = ("/", "/my-shifts")) -> None:
         """Re-read the CSRF token from a page that carries a form."""
         for route in routes:
             try:

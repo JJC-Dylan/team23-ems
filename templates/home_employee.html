@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block content %}
 <div class="pagehead">
@@ -6,27 +6,11 @@
     <h1>Welcome, {{ current_user.display_name }}</h1>
     <p class="muted">
       You are signed in as an Ordinary Employee. This system shows you your own
-      work-shift schedule; it does not allow changes to employee data or shift
+      work-shift timetable; it does not allow changes to employee data or rota
       plans.
     </p>
   </div>
-  <span class="role-badge role-badge--ordinary-employee">Ordinary Employee</span>
 </div>
-
-<section class="card card--shift-focus">
-  <h2>Your current shift</h2>
-  {% if shift_row %}
-    <p class="shift-big">
-      <span class="pill pill--{{ shift_row.shift_name }}">{{ shift_row.shift_name }}</span>
-    </p>
-    <p class="muted small">
-      Assigned on {{ shift_row.assigned_at }} by {{ shift_row.assigned_by }}.
-    </p>
-  {% else %}
-    <p class="empty">You have not been assigned any shifts yet.</p>
-  {% endif %}
-  <a class="button" href="/my-shifts">Open My work shifts</a>
-</section>
 
 <section class="card">
   <h2>Your details</h2>
@@ -46,5 +30,35 @@
     Human Resources to link it.
   </p>
   {% endif %}
+</section>
+
+<section class="card card--shift-focus">
+  <div class="card__head">
+    <h2>This week's shifts</h2>
+    <span class="muted small">Week of {{ week_label }}</span>
+  </div>
+  {% if not profile_linked or not employee %}
+    <p class="empty">
+      Your login account is not linked to an employee record yet, so no schedule
+      can be shown. Please ask Human Resources to link your account.
+    </p>
+  {% elif rota %}
+    <table class="table table--compact">
+      <thead><tr><th>Day</th><th>Shift</th><th>Time</th></tr></thead>
+      <tbody>
+        {% for row in rota %}
+        <tr>
+          <td><span class="weekday">{{ row.weekday }}</span> <span class="muted small">{{ row.work_date }}</span></td>
+          <td><span class="pill pill--{{ row.shift_name }}">{{ row.shift_name }}</span></td>
+          <td class="muted">{{ row.time }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="muted small">{{ shift_count }} shift(s) planned for you in this week.</p>
+  {% else %}
+    <p class="empty">You have not been assigned any shifts yet.</p>
+  {% endif %}
+  <a class="button" href="/my-shifts">Open my weekly timetable</a>
 </section>
 {% endblock %}

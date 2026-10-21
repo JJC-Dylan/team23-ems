@@ -129,7 +129,6 @@ code {
 .topnav__link.is-active { background: rgba(255, 255, 255, .2); color: #fff; font-weight: 600; }
 
 .topbar__account { margin-left: auto; display: flex; align-items: center; gap: .6rem; }
-.topbar__name { font-size: .88rem; opacity: .9; }
 
 /* --- page shell --------------------------------------------------------- */
 .page {
@@ -197,6 +196,8 @@ code {
   gap: 1.1rem;
   align-items: start;
 }
+/* A two-column layout with only one card left (HR sees no rota panel). */
+.two-col--single { grid-template-columns: minmax(0, 1fr); }
 
 /* --- KPI ---------------------------------------------------------------- */
 .kpi-grid {
@@ -227,10 +228,6 @@ code {
 .kpi--Evening { border-left-color: var(--evening); }
 .kpi--unassigned { border-left-color: var(--unassigned); }
 
-.shift-bars { display: flex; flex-direction: column; gap: .5rem; }
-.shift-bar { display: flex; align-items: center; gap: .7rem; }
-.shift-bar__count { color: var(--ink-soft); font-size: .88rem; }
-
 /* --- pills and badges --------------------------------------------------- */
 .pill {
   display: inline-block;
@@ -260,7 +257,7 @@ code {
 .login-card .role-badge,
 .page .role-badge { color: #fff; }
 
-.role-badge--hr { background: var(--brand); border-color: var(--brand-dark); }
+.role-badge--hr { background: #2f6fa8; border-color: #79a7cc; }
 .role-badge--supervisor { background: var(--accent); border-color: #0b5c56; }
 .role-badge--ordinary-employee { background: #6d28d9; border-color: #5b21b6; }
 
@@ -301,6 +298,10 @@ code {
 
 .action-row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
 .inline-form { display: inline; }
+
+/* Blocks stacked inside one card (actions, filters, then a table) need air. */
+.card > .action-row { margin-bottom: .9rem; }
+.card > .filter-bar { margin-bottom: .9rem; }
 
 /* --- forms -------------------------------------------------------------- */
 .form { display: flex; flex-direction: column; gap: .85rem; }
@@ -374,6 +375,22 @@ input:focus, select:focus, textarea:focus {
 .table__total td { font-weight: 650; background: var(--surface-alt); }
 .table--compact th, .table--compact td { padding: .35rem .5rem; font-size: .85rem; }
 .actions-col { white-space: nowrap; }
+
+/* Distribution table: the shifts across the top, the people count underneath. */
+.shift-table th, .shift-table td { text-align: center; }
+.shift-table thead th { vertical-align: bottom; white-space: nowrap; }
+.shift-table thead .pill { text-transform: none; letter-spacing: 0; }
+.shift-table__corner { width: 8.5rem; }
+.shift-table__time {
+  display: block;
+  margin-top: .2rem;
+  font-size: .72rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ink-faint);
+}
+.shift-table__label { text-align: left; font-weight: 600; white-space: nowrap; }
+.shift-table td.num { text-align: center; font-size: 1.05rem; font-weight: 650; }
 
 .empty {
   margin: 0;
@@ -496,6 +513,99 @@ input:focus, select:focus, textarea:focus {
 }
 .modal__box h2 { margin-top: 0; }
 .modal__actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+
+/* --- weekly rota: timetable grid and day roster ------------------------- */
+.weeknav { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+.weekday { font-weight: 650; }
+.weekday--today { color: var(--accent); }
+
+/* Text for screen readers only: the tick/dash cells stay understandable. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.timetable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .9rem;
+  background: var(--surface);
+}
+.timetable caption { text-align: left; }
+.timetable th, .timetable td {
+  border: 1px solid var(--line);
+  padding: .5rem .45rem;
+  text-align: center;
+  vertical-align: middle;
+}
+.timetable thead th {
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--line-strong);
+}
+.timetable__corner { text-align: left; font-size: .76rem; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--ink-faint); }
+.timetable__day { min-width: 76px; }
+.timetable__day--today { background: var(--brand-soft); }
+.timetable__weekday {
+  display: block;
+  font-size: .74rem;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.timetable__date { display: block; font-size: .85rem; font-weight: 600; color: var(--ink); }
+.timetable__day--today .timetable__weekday,
+.timetable__day--today .timetable__date { color: var(--brand); }
+.timetable__rowhead {
+  text-align: left;
+  white-space: nowrap;
+  background: var(--surface-alt);
+}
+.timetable__time { display: block; font-size: .76rem; color: var(--ink-faint); }
+.timetable__cell { padding: .55rem .3rem; }
+.timetable__cell--on { background: var(--ok-soft); }
+.timetable__tick { color: var(--ok); font-size: 1.05rem; font-weight: 700; }
+.timetable__cell--off { background: var(--surface); }
+.timetable__dash { color: var(--ink-faint); }
+
+/* A clickable cell: the whole cell opens the employee rota of that week. */
+.timetable__celllink { display: block; color: inherit; }
+.timetable__celllink:hover { text-decoration: none; }
+.timetable__celllink:hover .pill { filter: brightness(.96); }
+.timetable--roster td.timetable__cell { text-align: left; }
+.timetable--roster .timetable__cell .pill { margin: .1rem .15rem .1rem 0; }
+.timetable--roster td:first-child { text-align: left; }
+
+.roster-day__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: .5rem;
+}
+.roster-day__head h3 { margin: 0; display: flex; gap: .5rem; align-items: baseline; }
+.roster-table__shift { width: 9rem; }
+
+.person-list { display: flex; flex-wrap: wrap; gap: .35rem; }
+.person-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .3rem;
+  padding: .15rem .55rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-alt);
+  font-size: .86rem;
+}
+.person-chip__meta { color: var(--ink-faint); font-size: .76rem; }
 
 /* --- responsive --------------------------------------------------------- */
 @media (max-width: 900px) {

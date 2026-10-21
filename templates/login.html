@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block content %}
 <div class="login-wrap">
@@ -47,17 +47,17 @@
           <tr>
             <td><span class="role-badge role-badge--hr">HR</span></td>
             <td><code>hr</code></td><td><code>hr123</code></td>
-            <td>Add, edit, delete employees; view all shifts</td>
+            <td>Add, edit, delete employees; view the weekly rota by employee</td>
           </tr>
           <tr>
             <td><span class="role-badge role-badge--supervisor">Supervisor</span></td>
             <td><code>supervisor</code></td><td><code>super123</code></td>
-            <td>Assign shifts; read-only employee data</td>
+            <td>Plan the weekly rota; read-only employee data</td>
           </tr>
           <tr>
             <td><span class="role-badge role-badge--ordinary-employee">Ordinary Employee</span></td>
             <td><code>employee</code></td><td><code>emp123</code></td>
-            <td>View only their own work shifts</td>
+            <td>View only their own weekly timetable</td>
           </tr>
         </tbody>
       </table>
@@ -65,20 +65,20 @@
   </section>
 
   <aside class="login-aside">
-    <h2>Three fixed daily shifts</h2>
+    <h2>Three fixed shifts</h2>
     <ul class="pill-list">
-      <li class="pill pill--Morning">Morning</li>
-      <li class="pill pill--Afternoon">Afternoon</li>
-      <li class="pill pill--Evening">Evening</li>
+      <li class="pill pill--Morning">Morning 08:00 - 12:00</li>
+      <li class="pill pill--Afternoon">Afternoon 14:00 - 18:00</li>
+      <li class="pill pill--Evening">Evening 20:00 - 22:00</li>
     </ul>
     <h2>Role-based access</h2>
     <ul class="ticks">
-      <li><strong>HR</strong> owns the employee-record lifecycle.</li>
-      <li><strong>Supervisor</strong> assigns the daily shifts.</li>
-      <li><strong>Ordinary Employee</strong> sees only their own schedule.</li>
+      <li><strong>HR</strong> owns the employee-record lifecycle and reads the rota by employee.</li>
+      <li><strong>Supervisor</strong> plans each week's rota, day by day.</li>
+      <li><strong>Ordinary Employee</strong> sees only their own weekly timetable.</li>
     </ul>
     <p class="muted small">
-      Internal shop-administration tool. Employee data and shift assignments
+      Internal shop-administration tool. Employee data and weekly rota rows
       persist in a local SQLite database.
     </p>
   </aside>

@@ -1,0 +1,61 @@
+{% if employees %}
+<div class="table-scroll">
+  <table class="table table--hover">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Address</th>
+        <th class="num">Hourly wage</th>
+        <th>Shift this week</th>
+        <th>Contact</th>
+        <th class="actions-col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for employee in employees %}
+      <tr>
+        <td>
+          <a class="link link--strong" href="/employees/{{ employee.id }}">{{ employee.name }}</a>
+          <span class="muted small">#{{ employee.id }}</span>
+        </td>
+        <td class="muted">{{ employee.address }}</td>
+        <td class="num">{{ format_currency(employee.hourly_wage) }}</td>
+        <td>
+          {% if employee.shift_name %}
+            {% for name in employee.shift_name.split(', ') %}
+              <span class="pill pill--{{ name }}">{{ name }}</span>
+            {% endfor %}
+          {% else %}
+            <span class="pill pill--Unassigned">Unassigned</span>
+          {% endif %}
+        </td>
+        <td class="muted small">
+          {% if employee.phone %}{{ employee.phone }}{% endif %}
+          {% if employee.email %}<br>{{ employee.email }}{% endif %}
+          {% if not employee.phone and not employee.email %}Not recorded{% endif %}
+        </td>
+        <td class="actions-col">
+          <a class="button button--ghost button--small" href="/employees/{{ employee.id }}">View</a>
+          {% if can_manage %}
+            <a class="button button--ghost button--small" href="/employees/{{ employee.id }}/edit">Edit</a>
+            <form method="post" action="/employees/{{ employee.id }}/delete" class="inline-form"
+                  data-confirm="Delete {{ employee.name }}? This also removes all rota rows of this employee.">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="button button--danger button--small">Delete</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <p class="empty">
+    {% if query or wage_min or wage_max or shift_filter %}
+      No employee matches the current search and filters.
+    {% else %}
+      No employee data available.
+    {% endif %}
+  </p>
+{% endif %}

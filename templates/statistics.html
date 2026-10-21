@@ -5,9 +5,17 @@
   <div>
     <h1>Statistics</h1>
     <p class="muted">
-      A simple overview of the workforce: total employee count, how the staff is
-      spread across the three shifts, and wage figures.
+      A simple overview of the workforce for the week of {{ week_label }}: how
+      many shifts are planned, how the work is spread across the three shifts,
+      and wage figures.
     </p>
+  </div>
+  <div class="weeknav">
+    <a class="button button--ghost button--small" href="{{ week.week_prev_url }}" rel="prev">‹ Previous week</a>
+    {% if not week.is_current_week %}
+      <a class="button button--ghost button--small" href="{{ week.week_this_url }}">This week</a>
+    {% endif %}
+    <a class="button button--ghost button--small" href="{{ week.week_next_url }}" rel="next">Next week ›</a>
   </div>
 </div>
 
@@ -17,37 +25,39 @@
     <span class="kpi__value">{{ total_employees }}</span>
   </article>
   <article class="kpi">
-    <span class="kpi__label">Shifts assigned</span>
+    <span class="kpi__label">Shifts planned</span>
     <span class="kpi__value">{{ assigned_total }}</span>
   </article>
   <article class="kpi">
-    <span class="kpi__label">Without a shift</span>
+    <span class="kpi__label">Unassigned</span>
     <span class="kpi__value kpi__value--warn">{{ unassigned_total }}</span>
   </article>
 </section>
 
 <section class="two-col">
   <div class="card">
-    <h2>Employees per shift</h2>
+    <h2>Shift plan of the week</h2>
     <table class="table">
-      <thead><tr><th>Shift</th><th class="num">Employees</th></tr></thead>
+      <thead><tr><th>Shift</th><th>Time</th><th class="num">Shifts</th></tr></thead>
       <tbody>
-        {% for name in shift_names %}
+        {% for option in shift_options %}
         <tr>
-          <td><span class="pill pill--{{ name }}">{{ name }}</span></td>
-          <td class="num">{{ shift_counts[name] }}</td>
+          <td><span class="pill pill--{{ option.name }}">{{ option.name }}</span></td>
+          <td class="muted">{{ option.time }}</td>
+          <td class="num">{{ shift_counts[option.name] }}</td>
         </tr>
         {% endfor %}
-        <tr>
-          <td><span class="pill pill--Unassigned">Unassigned</span></td>
-          <td class="num">{{ shift_counts['Unassigned'] }}</td>
-        </tr>
         <tr class="table__total">
           <td>Total</td>
-          <td class="num">{{ total_employees }}</td>
+          <td></td>
+          <td class="num">{{ assigned_total }}</td>
         </tr>
       </tbody>
     </table>
+    <p class="muted small">
+      Each unit is one shift slot of one employee on one day. An employee may
+      appear twice on the same day when they work two shifts.
+    </p>
   </div>
 
   <div class="card">
@@ -69,20 +79,29 @@
 <section class="card">
   <div class="card__head">
     <h2>Employee data used for these figures</h2>
-    <a class="link" href="/employees">Open the full overview</a>
+    <a class="link" href="/">Open the employee overview</a>
   </div>
   {% if employees %}
   <div class="table-scroll">
     <table class="table">
       <thead>
-        <tr><th>Employee</th><th class="num">Hourly wage</th><th>Shift</th></tr>
+        <tr><th>Employee</th><th class="num">Hourly wage</th><th>Shifts this week</th><th class="num">Shifts</th></tr>
       </thead>
       <tbody>
         {% for employee in employees %}
         <tr>
           <td><a class="link" href="/employees/{{ employee.id }}">{{ employee.name }}</a></td>
           <td class="num">{{ format_currency(employee.hourly_wage) }}</td>
-          <td><span class="pill pill--{{ employee.shift_name or 'Unassigned' }}">{{ employee.shift_name or 'Unassigned' }}</span></td>
+          <td>
+            {% if employee.shift_name %}
+              {% for name in employee.shift_name.split(', ') %}
+                <span class="pill pill--{{ name }}">{{ name }}</span>
+              {% endfor %}
+            {% else %}
+              <span class="pill pill--Unassigned">Unassigned</span>
+            {% endif %}
+          </td>
+          <td class="num muted">{{ employee.shift_count }}</td>
         </tr>
         {% endfor %}
       </tbody>

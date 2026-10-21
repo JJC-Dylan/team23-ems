@@ -49,17 +49,17 @@ class ResponseTimeTests(ApplicationTestCase):
         return elapsed
 
     def test_employee_list_page_is_fast(self) -> None:
-        self._timed("/employees")  # warm the compiled templates first
-        elapsed = self._timed("/employees")
+        self._timed("/")  # warm the compiled templates first
+        elapsed = self._timed("/")
         self.assertLess(
             elapsed,
             RESPONSE_BUDGET_SECONDS,
-            f"/employees took {elapsed:.3f}s for {EXTRA_EMPLOYEES + 5} employees",
+            f"the employee list took {elapsed:.3f}s for {EXTRA_EMPLOYEES + 5} employees",
         )
 
     def test_employee_search_is_fast(self) -> None:
-        self._timed("/employees?q=Worker")
-        elapsed = self._timed("/employees?q=Worker")
+        self._timed("/?q=Worker")
+        elapsed = self._timed("/?q=Worker")
         self.assertLess(
             elapsed,
             RESPONSE_BUDGET_SECONDS,
@@ -67,8 +67,8 @@ class ResponseTimeTests(ApplicationTestCase):
         )
 
     def test_filtered_search_is_fast(self) -> None:
-        self._timed("/employees?wage_min=30&wage_max=40")
-        elapsed = self._timed("/employees?wage_min=30&wage_max=40")
+        self._timed("/?wage_min=30&wage_max=40")
+        elapsed = self._timed("/?wage_min=30&wage_max=40")
         self.assertLess(elapsed, RESPONSE_BUDGET_SECONDS, f"filter took {elapsed:.3f}s")
 
     def test_store_shift_overview_is_fast(self) -> None:
@@ -78,7 +78,7 @@ class ResponseTimeTests(ApplicationTestCase):
 
     def test_search_actually_matches_the_added_rows(self) -> None:
         """Guards the timing tests against a query that silently matches nothing."""
-        response = self.client.get("/employees?q=Worker 0001")
+        response = self.client.get("/?q=Worker 0001")
         self.assertIn("Worker 0001", response.text)
         self.assertIn("1 employee(s) shown", response.text)
 
@@ -93,7 +93,7 @@ class ConcurrencyTests(ApplicationTestCase):
         def worker(index: int) -> None:
             client = self.fresh_client()
             client.login("hr", "hr123")
-            page = client.get("/employees")
+            page = client.get("/")
             with lock:
                 statuses.append(page.status)
 

@@ -5,92 +5,178 @@
   <div>
     <h1>Store shift overview</h1>
     <p class="muted">
-      Every employee of MeítǐShāngchéng with the work shift assigned to them.
-      Shift assignment itself is performed from an employee's detail page by the
-      Store Supervisor.
+      {% if is_supervisor_view %}
+        The whole shop for the week of {{ week_label }}, grouped by day: for each
+        day you see which employees work the Morning, Afternoon and Evening
+        shift. Rota changes are made from an employee's detail page.
+      {% else %}
+        The whole shop for the week of {{ week_label }}, grouped by employee:
+        for each person you see the shifts of the week. Rota changes are made by
+        the Store Supervisor from an employee's detail page.
+      {% endif %}
     </p>
   </div>
   <span class="notice notice--readonly">Read-only overview</span>
 </div>
 
 <section class="kpi-grid kpi-grid--compact">
-  {% for name in shift_names %}
-  <article class="kpi kpi--{{ name }}">
-    <span class="kpi__label">{{ name }}</span>
-    <span class="kpi__value">{{ counts[name] }}</span>
+  {% for option in shift_options %}
+  <article class="kpi kpi--{{ option.name }}">
+    <span class="kpi__label">{{ option.name }}</span>
+    <span class="kpi__value">{{ counts[option.name] }}</span>
   </article>
   {% endfor %}
-  <article class="kpi kpi--unassigned">
-    <span class="kpi__label">Unassigned</span>
-    <span class="kpi__value">{{ counts['Unassigned'] }}</span>
+  <article class="kpi">
+    <span class="kpi__label">Shifts planned</span>
+    <span class="kpi__value">{{ counts['Total'] }}</span>
   </article>
   <article class="kpi">
-    <span class="kpi__label">Employees in total</span>
+    <span class="kpi__label">Employees</span>
     <span class="kpi__value">{{ total_employees }}</span>
   </article>
-</section>
-
-<section class="card">
-  <form class="filter-bar" method="get" action="/shifts">
-    <div class="filter-bar__field filter-bar__field--grow">
-      <label for="q">Find employee</label>
-      <input id="q" name="q" type="search" value="{{ query }}" placeholder="Employee name">
-    </div>
-    <div class="filter-bar__field">
-      <label for="shift">Shift</label>
-      <select id="shift" name="shift">
-        <option value="">All shifts</option>
-        {% for name in shift_names %}
-          <option value="{{ name }}" {% if shift_filter == name %}selected{% endif %}>{{ name }}</option>
-        {% endfor %}
-        <option value="Unassigned" {% if shift_filter == 'Unassigned' %}selected{% endif %}>Unassigned</option>
-      </select>
-    </div>
-    <div class="filter-bar__actions">
-      <button type="submit" class="button button--primary">Apply</button>
-      <a class="button button--ghost" href="/shifts">Reset</a>
-    </div>
-  </form>
+  <article class="kpi kpi--unassigned">
+    <span class="kpi__label">Unassigned</span>
+    <span class="kpi__value">{{ unassigned_total }}</span>
+  </article>
 </section>
 
 <section class="card">
   <div class="card__head">
-    <h2>{{ rows | length }} employee(s) listed</h2>
-    {% if current_user.can_assign_shifts %}
-      <span class="muted small">
-        To change a shift, open the employee record and use the shift-assignment panel.
-      </span>
-    {% endif %}
+    <h2>Week of {{ week_label }}</h2>
+    <div class="weeknav">
+      <a class="button button--ghost button--small" href="{{ week.week_prev_url }}" rel="prev">‹ Previous week</a>
+      {% if not week.is_current_week %}
+        <a class="button button--ghost button--small" href="{{ week.week_this_url }}">This week</a>
+      {% endif %}
+      <a class="button button--ghost button--small" href="{{ week.week_next_url }}" rel="next">Next week ›</a>
+    </div>
   </div>
 
-  {% if rows %}
+  {% if is_supervisor_view %}
+    <p class="muted small">
+      To change a shift, open the employee record and use the rota panel there.
+    </p>
+  {% else %}
+    <form class="filter-bar" method="get" action="/shifts">
+      <input type="hidden" name="week" value="{{ week.week_start }}">
+      <div class="filter-bar__field filter-bar__field--grow">
+        <label for="q">Find employee</label>
+        <input id="q" name="q" type="search" value="{{ query }}" placeholder="Employee name">
+      </div>
+      <div class="filter-bar__field">
+        <label for="shift">Shift in this week</label>
+        <select id="shift" name="shift">
+          <option value="">All shifts</option>
+          {% for option in shift_options %}
+            <option value="{{ option.name }}" {% if shift_filter == option.name %}selected{% endif %}>{{ option.name }}</option>
+          {% endfor %}
+          <option value="Unassigned" {% if shift_filter == 'Unassigned' %}selected{% endif %}>Unassigned</option>
+        </select>
+      </div>
+      <div class="filter-bar__actions">
+        <button type="submit" class="button button--primary">Apply</button>
+        <a class="button button--ghost" href="/shifts?week={{ week.week_start }}">Reset</a>
+      </div>
+    </form>
+  {% endif %}
+</section>
+
+{% if is_supervisor_view %}
+
+  {% for day in days %}
+  <section class="card roster-day">
+    <div class="roster-day__head">
+      <h3>
+        <span class="weekday{% if day.is_today %} weekday--today{% endif %}">{{ day.weekday }}</span>
+        <span class="muted">{{ day.work_date }}</span>
+      </h3>
+      <span class="muted small">{{ day.total }} person(s) working</span>
+    </div>
+
+    <table class="table table--compact">
+      <thead>
+        <tr><th class="roster-table__shift">Shift</th><th>Time</th><th>Employees working</th></tr>
+      </thead>
+      <tbody>
+        {% for group in day.groups %}
+        <tr>
+          <td><span class="pill pill--{{ group.shift_name }}">{{ group.shift_name }}</span></td>
+          <td class="muted small">{{ group.time }}</td>
+          <td>
+            {% if group.employees %}
+              <div class="person-list">
+                {% for person in group.employees %}
+                  <span class="person-chip">
+                    <a class="link link--strong" href="/employees/{{ person.id }}?week={{ day.work_date }}">{{ person.name }}</a>
+                    <span class="person-chip__meta">#{{ person.id }}{% if person.phone %} · {{ person.phone }}{% endif %}</span>
+                  </span>
+                {% endfor %}
+              </div>
+            {% else %}
+              <span class="muted small">No one assigned</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endfor %}
+
+{% else %}
+
+<section class="card">
+  <div class="card__head">
+    <h2>{{ listed_count }} employee(s) listed</h2>
+    <span class="muted small">{{ counts['Total'] }} shift(s) planned in this week</span>
+  </div>
+
+  {% if employees %}
   <div class="table-scroll">
-    <table class="table table--hover">
+    <table class="table table--hover timetable timetable--roster">
       <thead>
         <tr>
-          <th>Employee</th>
-          <th>Assigned shift</th>
-          <th>Assigned on</th>
-          <th>Assigned by</th>
-          <th class="actions-col">Record</th>
+          <th scope="col" class="timetable__corner">Employee</th>
+          {% for day in week.week %}
+            <th scope="col" class="timetable__day{% if day.is_today %} timetable__day--today{% endif %}">
+              <span class="timetable__weekday">{{ day.weekday }}</span>
+              <span class="timetable__date">{{ day.day }} {{ day.month }}</span>
+            </th>
+          {% endfor %}
+          <th scope="col">Week summary</th>
         </tr>
       </thead>
       <tbody>
-        {% for row in rows %}
+        {% for person in employees %}
         <tr>
           <td>
-            <a class="link link--strong" href="/employees/{{ row.id }}">{{ row.name }}</a>
-            <span class="muted small">#{{ row.id }}</span>
+            <a class="link link--strong" href="/employees/{{ person.id }}?week={{ week.week_start }}">{{ person.name }}</a>
+            <span class="muted small">#{{ person.id }}</span>
+            {% if person.phone %}<br><span class="muted small">{{ person.phone }}</span>{% endif %}
           </td>
+          {% for day in week.week %}
+            {% if not person.days[day.date] %}
+              <td class="timetable__cell timetable__cell--off" data-date="{{ day.date }}">
+                <span class="timetable__dash" aria-hidden="true">—</span>
+              </td>
+            {% else %}
+              <td class="timetable__cell timetable__cell--on" data-date="{{ day.date }}">
+                <a class="timetable__celllink" href="/employees/{{ person.id }}?week={{ week.week_start }}"
+                   title="Open the rota of {{ person.name }}">
+                  {% for shift_name in person.days[day.date] %}
+                    <span class="pill pill--{{ shift_name }}">{{ shift_name }}</span>
+                  {% endfor %}
+                </a>
+              </td>
+            {% endif %}
+          {% endfor %}
           <td>
-            <span class="pill pill--{{ row.shift_name or 'Unassigned' }}">
-              {{ row.shift_name or 'Unassigned' }}
-            </span>
-          </td>
-          <td class="muted">{{ row.shift_assigned_at or '—' }}</td>
-          <td class="muted">{{ row.shift_assigned_by or '—' }}</td>
-          <td class="actions-col">
-            <a class="button button--ghost button--small" href="/employees/{{ row.id }}">Open</a>
+            {% if person.shift_label %}
+              <span class="muted">{{ person.shift_label }}</span>
+              <span class="muted small">({{ person.shift_count }})</span>
+            {% else %}
+              <span class="pill pill--Unassigned">Unassigned</span>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -105,4 +191,6 @@
     {% endif %}
   {% endif %}
 </section>
+
+{% endif %}
 {% endblock %}

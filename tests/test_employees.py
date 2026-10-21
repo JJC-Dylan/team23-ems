@@ -6,9 +6,11 @@ Maps to FR01, FR02, FR03, FR04, FR05, FR11, FR12, FR13 and NFR03.
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
 import unittest
 
+from app import repositories as repo
 from app.app import Application
 from tests.base import ApplicationTestCase, PROJECT_ROOT
 from tests.client import TestClient
@@ -51,7 +53,7 @@ class AddEmployeeTests(ApplicationTestCase):
         self.assertEqual(response.status, 303)
         self.assertIn("/employees/", response.location)
 
-        overview = self.client.get("/employees")
+        overview = self.client.get("/")
         self.assertIn("Zhao Lei", overview.text)
         self.assertIn("29.90", overview.text)
 
@@ -60,7 +62,7 @@ class AddEmployeeTests(ApplicationTestCase):
             "/employees/new",
             {"name": "Zhao Lei", "address": "77 Songshan Road", "hourly_wage": "29.9"},
         )
-        overview = self.client.get("/employees?q=Zhao")
+        overview = self.client.get("/?q=Zhao")
         self.assertIn("Zhao Lei", overview.text)
         self.assertIn("Unassigned", overview.text)
 
@@ -153,12 +155,12 @@ class ValidationTests(ApplicationTestCase):
             self.assertNotIn(forbidden, lowered)
 
     def test_invalid_wage_filter_is_reported_but_page_still_works(self) -> None:
-        response = self.client.get("/employees?wage_min=abc")
+        response = self.client.get("/?wage_min=abc")
         self.assertEqual(response.status, 200)
         self.assertIn("The wage filter was ignored", response.text)
 
     def test_inverted_wage_range_is_reported(self) -> None:
-        response = self.client.get("/employees?wage_min=50&wage_max=10")
+        response = self.client.get("/?wage_min=50&wage_max=10")
         self.assertIn("cannot be greater than the maximum", response.text)
 
 
@@ -222,12 +224,16 @@ class DeleteEmployeeTests(ApplicationTestCase):
     def test_delete_removes_the_employee_from_the_overview(self) -> None:
         response = self.client.post("/employees/2/delete", {})
         self.assertEqual(response.status, 303)
-        self.assertEqual(response.location, "/employees")
+        self.assertEqual(response.location, "/")
 
-        overview = self.client.get("/employees")
-        # The record must be gone from the table. The name may still appear in
-        # the confirmation message, so the table body is what gets checked.
-        table_body = overview.text.split("<tbody>")[1].split("</tbody>")[0]
+        overview = self.client.get("/")
+        # The record must be gone from the employee table. The name may still
+        # appear in the confirmation message, so the table body is what gets
+        # checked; the page also carries the shift-distribution table first.
+        table_body = (
+            overview.text.split('<table class="table table--hover">')[1]
+            .split("</tbody>")[0]
+        )
         self.assertNotIn("Zhang Min", table_body)
         self.assertIn("Chen Hao", table_body)
 
@@ -243,14 +249,16 @@ class DeleteEmployeeTests(ApplicationTestCase):
             finally:
                 conn.close()
 
-        self.assertEqual(shift_count(1), 1, "the seed data assigns employee 1 a shift")
+        self.assertEqual(
+            shift_count(1), 6, "the seed data plans six rota rows for employee 1"
+        )
 
         self.client.post("/employees/1/delete", {})
 
         self.assertEqual(
             shift_count(1),
             0,
-            "deleting an employee must cascade to that employee's shift records",
+            "deleting an employee must cascade to every rota row of that employee",
         )
 
     def test_deleting_a_missing_employee_reports_it(self) -> None:
@@ -266,46 +274,59 @@ class OverviewAndSearchTests(ApplicationTestCase):
         self.client = self.sign_in("HR")
 
     def test_overview_lists_every_employee_and_the_total(self) -> None:
-        response = self.client.get("/employees")
+        response = self.client.get("/")
         self.assertEqual(response.status, 200)
         self.assertIn("5 employee(s) shown", response.text)
         self.assertIn("of 5 in total", response.text)
         for name in ("Li Wei", "Zhang Min", "Chen Hao", "Wang Fang", "Sun Jie"):
             self.assertIn(name, response.text)
 
+    def test_shift_distribution_table_shows_people_per_shift(self) -> None:
+        response = self.client.get("/")
+        self.assertIn("Shift distribution", response.text)
+        table = (
+            response.text.split('<table class="table table--compact shift-table">')[1]
+            .split("</table>")[0]
+        )
+        for shift_name in ("Morning", "Afternoon", "Evening", "Unassigned"):
+            self.assertIn(f'pill pill--{shift_name}"', table)
+        # Two people work Morning, one Afternoon, three Evening, one unassigned.
+        counts = re.findall(r'<td class="num">(\d+)</td>', table)
+        self.assertEqual(counts, ["2", "1", "3", "1"])
+
     def test_search_by_name(self) -> None:
-        response = self.client.get("/employees?q=Zhang")
+        response = self.client.get("/?q=Zhang")
         self.assertIn("Zhang Min", response.text)
         self.assertNotIn("Chen Hao", response.text)
 
     def test_search_by_address(self) -> None:
-        response = self.client.get("/employees?q=Nongye")
+        response = self.client.get("/?q=Nongye")
         self.assertIn("Chen Hao", response.text)
         self.assertNotIn("Li Wei", response.text)
 
     def test_search_without_match_shows_a_placeholder(self) -> None:
-        response = self.client.get("/employees?q=NobodyHere")
+        response = self.client.get("/?q=NobodyHere")
         self.assertIn("No employee matches the current search", response.text)
 
     def test_wage_range_filter(self) -> None:
-        response = self.client.get("/employees?wage_min=30&wage_max=36")
+        response = self.client.get("/?wage_min=30&wage_max=36")
         self.assertIn("Li Wei", response.text)      # 32.50
         self.assertIn("Chen Hao", response.text)    # 35.75
         self.assertNotIn("Zhang Min", response.text)  # 28.00
         self.assertNotIn("Sun Jie", response.text)    # 41.00
 
     def test_shift_filter_including_unassigned(self) -> None:
-        assigned = self.client.get("/employees?shift=Morning")
+        assigned = self.client.get("/?shift=Morning")
         self.assertIn("Li Wei", assigned.text)
         self.assertIn("Sun Jie", assigned.text)
         self.assertNotIn("Zhang Min", assigned.text)
 
-        unassigned = self.client.get("/employees?shift=Unassigned")
+        unassigned = self.client.get("/?shift=Unassigned")
         self.assertIn("Wang Fang", unassigned.text)
         self.assertNotIn("Li Wei", unassigned.text)
 
     def test_sorting_by_wage_descending(self) -> None:
-        response = self.client.get("/employees?sort=wage_desc")
+        response = self.client.get("/?sort=wage_desc")
         text = response.text
         self.assertLess(text.index("Sun Jie"), text.index("Chen Hao"))
         self.assertLess(text.index("Chen Hao"), text.index("Li Wei"))
@@ -315,7 +336,7 @@ class OverviewAndSearchTests(ApplicationTestCase):
         response = self.client.get("/statistics")
         self.assertEqual(response.status, 200)
         self.assertIn("Total employees", response.text)
-        self.assertIn("Employees per shift", response.text)
+        self.assertIn("Shift plan of the week", response.text)
         self.assertIn("Average hourly wage", response.text)
 
     def test_duplicate_names_are_still_distinguishable_by_id(self) -> None:
@@ -323,7 +344,7 @@ class OverviewAndSearchTests(ApplicationTestCase):
             "/employees/new",
             {"name": "Li Wei", "address": "Second record for the same name", "hourly_wage": "25"},
         )
-        response = self.client.get("/employees?q=Li Wei")
+        response = self.client.get("/?q=Li Wei")
         self.assertIn("#1", response.text)
         self.assertIn("#6", response.text)
 
@@ -344,24 +365,28 @@ class PersistenceTests(ApplicationTestCase):
 
         restarted = restarted_application(self.db_path)
         fresh = sign_in_on(restarted, "hr", "hr123")
-        response = fresh.get("/employees?q=Persisted")
+        response = fresh.get("/?q=Persisted")
         self.assertIn("Persisted Person", response.text)
         self.assertIn("22.25", response.text)
 
     def test_shift_assignment_survives_a_restart(self) -> None:
+        week = repo.week_dates()
         supervisor = self.sign_in("Supervisor")
-        supervisor.post("/employees/4/shift", {"shift_name": "Evening"})
+        supervisor.post(
+            "/employees/4/shift", {"work_date": week[0], "shift_name": "Evening"}
+        )
 
         restarted = restarted_application(self.db_path)
         fresh = sign_in_on(restarted, "supervisor", "super123")
-        detail = fresh.get("/employees/4")
+        detail = fresh.get(f"/employees/4?week={week[0]}")
         self.assertIn("Evening", detail.text)
+        self.assertIn(week[0], detail.text)
 
     def test_seeding_does_not_run_twice(self) -> None:
         restarted = restarted_application(self.db_path)
         self.assertFalse(restarted.seeded_now, "an existing database must not be reseeded")
         client = sign_in_on(restarted, "hr", "hr123")
-        self.assertIn("5 employee(s) shown", client.get("/employees").text)
+        self.assertIn("5 employee(s) shown", client.get("/").text)
 
 
 if __name__ == "__main__":

@@ -5,14 +5,14 @@ and **User Requirements Specification (URS)** for MeítǐShāngchéng hardware s
 (parent company: Jupiter).
 
 It replaces the Excel spreadsheets and online calendars the client uses today with one
-centralised system for **employee records** and **Morning / Afternoon / Evening shift
-planning**, with strict role-based access control for **Human Resources**, **Supervisor**
+centralised system for **employee records** and **weekly Morning / Afternoon / Evening
+rotas**, with strict role-based access control for **Human Resources**, **Supervisor**
 and **Ordinary Employee**.
 
 * **Python standard library only** — no `pip install`, no virtual environment needed.
 * **Python 3.10 or newer** — the test suite is run on the oldest supported version.
 * **SQLite storage** — data survives restarts (URS NFR03).
-* **97 automated tests** covering every Must-have requirement.
+* **137 automated tests** covering every Must-have requirement.
 
 ---
 
@@ -59,12 +59,13 @@ account per role:
 
 | Role | Username | Password | What this role can do |
 |---|---|---|---|
-| Human Resources (HR) | `hr` | `hr123` | Add, edit and delete employee records; search employees; view all shift schedules. **Cannot** assign shifts. |
-| Supervisor | `supervisor` | `super123` | Search and view employees; view all shift schedules; **manually assign** Morning/Afternoon/Evening shifts. **Cannot** create, edit or delete employees. |
-| Ordinary Employee | `employee` | `emp123` | View **only their own** work shifts. |
+| Human Resources (HR) | `hr` | `hr123` | Add, edit and delete employee records; search employees; view the weekly rota of the whole store **grouped by employee**, with filters by shift and by employee name. **Cannot** change the rota. |
+| Supervisor | `supervisor` | `super123` | Search and view employees; view the weekly rota of the whole store **grouped by day** (who works which shift today); **plan** Morning/Afternoon/Evening shifts on any date, several per day. **Cannot** create, edit or delete employees. |
+| Ordinary Employee | `employee` | `emp123` | View **only their own weekly timetable** (three shift rows × Monday–Sunday columns). |
 
-The `employee` account is linked to the employee record **Li Wei**, who starts on the
-Morning shift, so the read-only view has content immediately.
+The `employee` account is linked to the employee record **Li Wei**, who works the
+Morning shift Monday to Friday plus an Evening shift on Wednesday, so the personal
+timetable has content immediately.
 
 ---
 
@@ -73,15 +74,21 @@ Morning shift, so the read-only view has content immediately.
 | Screen | Address | Who sees it |
 |---|---|---|
 | Login | `/login` | Everyone |
-| Home (role-aware dashboard) | `/` | All signed-in users |
-| Employee Overview (searchable table) | `/employees` | HR, Supervisor |
+| Home | `/` | All signed-in users — staff see the **Employee overview** (searchable table) with the quick actions; an Ordinary Employee sees their own week |
 | Add employee | `/employees/new` | HR |
-| Employee Detail + shift panel | `/employees/<id>` | HR (read-only panel), Supervisor (panel active) |
+| Employee Detail + rota panel (one week at a time, add/remove entries) | `/employees/<id>` | HR (read-only rota), Supervisor (rota editable) |
 | Edit employee | `/employees/<id>/edit` | HR |
-| Full-Store Shift Overview | `/shifts` | HR, Supervisor |
-| My Work Shifts | `/my-shifts` | Ordinary Employee |
-| Statistics | `/statistics` | HR, Supervisor |
+| Store Weekly Rota | `/shifts` | HR (grouped by employee, filterable), Supervisor (grouped by day) |
+| My Work Shifts — personal weekly timetable | `/my-shifts` | Ordinary Employee |
+| Statistics (weekly totals) | `/statistics` | HR, Supervisor |
 | Health probe | `/healthz` | — |
+
+Every weekly screen accepts `?week=YYYY-MM-DD` (any day of the week; it is converted
+to that week's Monday) and offers previous / next week links.
+
+Signing in always lands on the **Home** page (URS section 7: Login → System Home Page →
+branch by role), so an Ordinary Employee first sees their own week at a glance and opens
+the full timetable from there.
 
 The navigation bar only renders the links the signed-in role is allowed to use, and every
 page is also protected on the server, so hiding a button is never the only defence.
@@ -98,15 +105,15 @@ page is also protected on the server, so hiding a button is never the only defen
 | FR02 | Must | `views.employee_delete` (shift rows cascade) | `DeleteEmployeeTests` |
 | FR03 | Must | `views.employee_edit`, `repositories.update_employee` | `EditEmployeeTests` |
 | FR04 | Must | `repositories.search_employees`, employee detail page | `OverviewAndSearchTests` |
-| FR05 | Must | `/employees` overview | `OverviewAndSearchTests` |
-| FR06 | Must | `views.employee_assign_shift` | `ShiftAssignmentTests` |
-| FR07 | Must | employee detail + `/my-shifts` | `SingleEmployeeShiftViewTests`, `OwnShiftViewTests` |
-| FR08 | Must | `/shifts` | `StoreShiftOverviewTests` |
+| FR05 | Must | Employee overview table on the Home page | `OverviewAndSearchTests` |
+| FR06 | Must | `views.employee_assign_shift` / `employee_clear_shift` (dated rota, several shifts per day) | `ShiftAssignmentTests` |
+| FR07 | Must | employee detail weekly rota + `/my-shifts` timetable | `SingleEmployeeShiftViewTests`, `OwnShiftViewTests` |
+| FR08 | Must | `/shifts` (Supervisor by day, HR by employee) | `StoreShiftOverviewTests` |
 | FR09 | Must | Supervisor read-only employee pages | `AccessControlTests` |
-| FR10 | Must | shift panel restricted to Supervisor | `AccessControlTests` |
+| FR10 | Must | rota panel restricted to Supervisor | `AccessControlTests`, `HrRotaPermissionTests` |
 | FR11 | Should | `htmlpages.validate_employee` + friendly error page | `ValidationTests` |
-| FR12 | Could | wage-range and shift filters + sorting | `test_wage_range_filter`, `test_shift_filter_including_unassigned` |
-| FR13 | Could | total employee count on the overview, `/statistics` page | `test_statistics_page_shows_totals` |
+| FR12 | Could | wage-range and weekly-shift filters + sorting | `test_wage_range_filter`, `test_shift_filter_including_unassigned`, `test_hr_can_filter_by_shift` |
+| FR13 | Could | weekly totals on the overview and `/statistics` | `test_statistics_page_shows_totals`, `test_week_summary_counts` |
 | FR14–FR18 | Won't | deliberately **not** built (department management, attendance, automatic schedules, stock, self-service portal) | — |
 
 ### Non-functional requirements (URS 5.2)
@@ -152,11 +159,11 @@ team23-website/
 │
 ├── templates/               HTML pages
 │   ├── base.html            shared layout and navigation
+│   ├── partials/            shared markup (the employee table)
 │   ├── login.html           Login View
-│   ├── home_staff.html      dashboard for HR and Supervisor
-│   ├── home_employee.html   dashboard for an Ordinary Employee
-│   ├── employees_overview.html
-│   ├── employee_detail.html (includes the shift-assignment panel)
+│   ├── home_staff.html      Home: employee overview table, KPIs and quick actions
+│   ├── home_employee.html   Home for an Ordinary Employee
+│   ├── employee_detail.html (includes the rota panel)
 │   ├── employee_form.html   add / edit with inline validation messages
 │   ├── store_shifts.html    Full-Store Shift Overview
 │   ├── my_shifts.html       My Work Shifts
@@ -167,20 +174,40 @@ team23-website/
 │   ├── css/app.css          the whole visual design
 │   └── js/app.js            delete confirmation, small conveniences
 │
-├── tests/                   97 automated tests
+├── tests/                   137 automated tests
 └── data/                    employee_management.db (created on first run)
 ```
 
 ### Design decisions worth knowing
 
-* **One current shift per employee.** The URS full-store overview is a single table of
-  employee plus assigned shift, so the `shifts` table holds one row per employee and
-  re-assignment updates it. Deleting an employee removes the row by foreign-key cascade.
+* **The rota is dated, and a person may work several shifts a day.** A `shifts` row
+  means "this employee, on this date, in this shift" and the uniqueness key is
+  `(employee_id, work_date, shift_name)`. Shift times are the ones confirmed with the
+  client after the demonstration: Morning 08:00–12:00, Afternoon 14:00–18:00,
+  Evening 20:00–22:00; none crosses midnight. See the next section for the upgrade
+  path of an older database.
+* **Three roles, three shapes of the same week.** The schedule is not one table shown
+  to everybody: the employee reads a timetable (rows = shifts, columns = days), the
+  Supervisor reads the week day by day, and HR reads it employee by employee. Only the
+  employee detail page changes the rota, so an overview page can never be edited by
+  accident.
+* **One employee overview, on the home page.** The searchable employee table and its
+  actions live on `/`; the separate `/employees` list page was removed so there is only
+  one place to look. `/employees/<id>` stays the detail/edit path.
 * **Sessions are server-side.** The browser only holds an opaque random token in an
   HttpOnly cookie, so the role cannot be tampered with from the browser.
 * **CSRF protection on every state-changing form.** A per-session token is required; a
   form submitted without it changes nothing.
 * **Passwords** are stored as salted PBKDF2-HMAC-SHA256 hashes, never in clear text.
+
+### Upgrading a database from the previous release
+
+The previous release stored one *current* shift per employee, with no date. Because the
+client has since confirmed a weekly rota, `initialize()` detects that old `shifts` table
+(no `work_date` column), rebuilds it with the dated layout and regenerates the
+demonstration rota for the current week. Employee records and login accounts are left
+untouched; rota rows cannot be carried over because they carry no date. To start from a
+clean database instead, run `python app.py --reset-db`.
 
 ---
 
@@ -196,14 +223,14 @@ In PyCharm you can also right-click the `tests` folder → **Run 'Unittests in t
 
 | Test file | Tests | What it proves |
 |---|---|---|
-| `test_auth_and_access.py` | 19 | Login, logout, and the full FR09/FR10/NFR02 permission matrix |
-| `test_employees.py` | 33 | FR01–FR05, FR11–FR13, cascade delete, persistence across restarts |
-| `test_shifts.py` | 20 | FR06–FR08, FR10 and the URS use-case extensions |
+| `test_auth_and_access.py` | 20 | Login, logout, and the full FR09/FR10/NFR02 permission matrix |
+| `test_employees.py` | 34 | FR01–FR05, FR11–FR13, cascade delete, persistence across restarts |
+| `test_shifts.py` | 58 | FR06–FR08, FR10, the weekly rota (dates, several shifts a day, week navigation) and the schema upgrade |
 | `test_nonfunctional.py` | 7 | NFR01 response time with 400+ employees, NFR05 ten concurrent users and concurrent writes |
 | `test_templateengine.py` | 10 | The template engine itself (inheritance, escaping, loops) |
 | `test_live_server.py` | 8 | Real HTTP over a socket, static files, path-traversal refusal, 10 parallel users |
 
-All 97 tests pass on **Python 3.10.1**, the oldest version this project supports
+All 137 tests pass on **Python 3.10.1**, the oldest version this project supports
 (verified by running the suite with that interpreter, not only with a newer one).
 
 If you ever change the code, keep it compatible with 3.10: for example, an f-string may
@@ -222,16 +249,17 @@ useful as a pre-demo sanity check, and as evidence for the test report.
 python app.py --port 8131 --no-browser
 
 # 2. in a second terminal, check every screen and permission
-python docs/verify_running_app.py http://127.0.0.1:8131     # 34 checks
+python docs/verify_running_app.py http://127.0.0.1:8131     # 40 checks
 
 # 3. prove data survives a restart (starts and stops the server itself)
 python docs/verify_persistence.py                          # 7 checks
 ```
 
 `verify_running_app.py` drives the three roles through login, CRUD, search, filtering,
-shift assignment, statistics, deletion, CSRF refusal and static files.
-`verify_persistence.py` writes an employee and a shift, stops the server, starts a fresh
-one over the same database, and confirms both are still there.
+weekly rota planning and removal, week navigation, statistics, deletion, CSRF refusal
+and static files.
+`verify_persistence.py` writes an employee and a dated rota row, stops the server, starts
+a fresh one over the same database, and confirms both are still there.
 
 ---
 

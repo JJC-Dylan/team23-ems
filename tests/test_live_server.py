@@ -104,13 +104,13 @@ class LiveServerTests(unittest.TestCase):
     def test_full_sign_in_flow_and_a_page_render(self) -> None:
         opener = self.opener()
         self.sign_in(opener, "hr", "hr123")
-        page = self.get(opener, "/employees").read().decode("utf-8")
+        page = self.get(opener, "/").read().decode("utf-8")
         self.assertIn("Li Wei", page)
         self.assertIn("Add new employee", page)
 
     def test_anonymous_request_ends_at_the_login_page(self) -> None:
         opener = self.opener()
-        response = self.get(opener, "/employees")
+        response = self.get(opener, "/")
         self.assertIn("/login", response.geturl())
 
     def test_parallel_requests_are_handled(self) -> None:
@@ -122,7 +122,7 @@ class LiveServerTests(unittest.TestCase):
             opener = self.opener()
             try:
                 self.sign_in(opener, "hr", "hr123")
-                response = self.get(opener, "/employees")
+                response = self.get(opener, "/")
                 code = response.status
             except Exception:  # noqa: BLE001 - recorded as a failure below
                 code = 0

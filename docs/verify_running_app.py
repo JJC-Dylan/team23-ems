@@ -10,6 +10,7 @@ real cookies, so it proves the artefact a user actually opens.
 
 from __future__ import annotations
 
+import datetime
 import http.cookiejar
 import re
 import sys
@@ -20,6 +21,10 @@ import urllib.request
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8131"
 
 TOKEN_RE = re.compile(r'name="_csrf_token"\s+value="([^"]*)"')
+
+#: Monday of the current week: the rota is dated, so a shift needs a date.
+TODAY = datetime.date.today()
+MONDAY = (TODAY - datetime.timedelta(days=TODAY.weekday())).isoformat()
 
 
 class Browser:
@@ -91,22 +96,25 @@ def main() -> int:
 
     # --- 2. all three roles sign in -------------------------------------
     hr = Browser()
-    hr_home = hr.sign_in("hr", "hr123", "/employees")
+    hr_home = hr.sign_in("hr", "hr123", "/")
     check("HR signs in and sees the HR badge", "role-badge--hr" in hr_home)
     check("HR sees the Add-new-employee action", 'href="/employees/new"' in hr_home)
 
     supervisor = Browser()
-    sup_page = supervisor.sign_in("supervisor", "super123", "/employees")
+    sup_page = supervisor.sign_in("supervisor", "super123", "/")
     check("Supervisor signs in with the read-only notice", "read-only employee data" in sup_page)
     check("Supervisor cannot see the Add action", 'href="/employees/new"' not in sup_page)
 
     employee = Browser()
-    emp_page = employee.sign_in("employee", "emp123", "/my-shifts")
-    check("Ordinary Employee signs in on My work shifts", "My work shifts" in emp_page)
+    emp_page = employee.sign_in("employee", "emp123", "/")
+    check(
+        "Ordinary Employee signs in on the Home page (URS 7)",
+        "Welcome, Ordinary Employee" in emp_page and 'href="/my-shifts"' in emp_page,
+    )
 
     # --- 3. role-based access control (NFR02) ---------------------------
-    status, _ = employee.get("/employees")
-    check("employee blocked from /employees (403)", status == 403)
+    status, _ = employee.get("/employees/1")
+    check("employee blocked from the employee detail page (403)", status == 403)
     status, _ = employee.get("/shifts")
     check("employee blocked from /shifts (403)", status == 403)
     status, _ = employee.get("/statistics")
@@ -115,7 +123,9 @@ def main() -> int:
     check("employee blocked from the add form (403)", status == 403)
     status, _ = supervisor.post("/employees/1/delete", {})
     check("supervisor blocked from deleting (403)", status == 403)
-    status, _ = hr.post("/employees/1/shift", {"shift_name": "Morning"})
+    status, _ = hr.post(
+        "/employees/1/shift", {"work_date": MONDAY, "shift_name": "Morning"}
+    )
     check("HR blocked from assigning a shift (403)", status == 403)
 
     # --- 4. employee CRUD (FR01-FR03) -----------------------------------
@@ -139,10 +149,10 @@ def main() -> int:
     status, detail = hr.get(f"/employees/{new_id}")
     check("employee detail page opens (FR04)", status == 200 and "Final Check" in detail)
 
-    status, found = hr.get("/employees?q=Final+Check")
+    status, found = hr.get("/?q=Final+Check")
     check("search finds the employee (FR04/FR05)", status == 200 and "Final Check" in found)
 
-    status, filtered = hr.get("/employees?wage_min=31&wage_max=32")
+    status, filtered = hr.get("/?wage_min=31&wage_max=32")
     check("wage-range filter selects it (FR12)", "Final Check" in filtered)
 
     status, edited = hr.post(
@@ -171,44 +181,77 @@ def main() -> int:
         "traceback" not in lowered and "sqlite3." not in lowered and "valueerror" not in lowered,
     )
 
-    # --- 6. shifts (FR06-FR08, FR10) ------------------------------------
-    status, panel = supervisor.get(f"/employees/{new_id}")
+    # --- 6. weekly rota (FR06-FR08, FR10) -------------------------------
+    status, panel = supervisor.get(f"/employees/{new_id}?week={MONDAY}")
     token = TOKEN_RE.search(panel)
     if token:
         supervisor.csrf = token.group(1)
-    check("Supervisor sees the shift-assignment panel", "Confirm shift assignment" in panel)
-
-    status, assigned = supervisor.post(f"/employees/{new_id}/shift", {"shift_name": "Afternoon"})
+    check("Supervisor sees the rota panel", "Confirm shift assignment" in panel)
+    check("rota panel asks for the working date", 'name="work_date"' in panel)
     check(
-        "Supervisor assigns an Afternoon shift (FR06/FR10)",
+        "rota panel offers the confirmed shift times",
+        "08:00 - 12:00" in panel and "14:00 - 18:00" in panel and "20:00 - 22:00" in panel,
+    )
+
+    status, assigned = supervisor.post(
+        f"/employees/{new_id}/shift", {"work_date": MONDAY, "shift_name": "Afternoon"}
+    )
+    check(
+        "Supervisor plans an Afternoon shift on a date (FR06/FR10)",
         status == 200 and 'pill--Afternoon">' in assigned and "Afternoon" in assigned,
     )
     check(
-        "single-employee shift view shows the assignment (FR07)",
-        "Assigned work shifts of this employee" in assigned,
+        "the employee detail shows the whole week (FR07)",
+        "Rota for the week of" in assigned and MONDAY in assigned,
     )
 
-    status, store = supervisor.get("/shifts")
+    # One employee may work several shifts on the same day.
+    status, doubled = supervisor.post(
+        f"/employees/{new_id}/shift", {"work_date": MONDAY, "shift_name": "Evening"}
+    )
     check(
-        "full-store shift overview lists everyone (FR08)",
-        status == 200 and "Final Check" in store and "Li Wei" in store,
+        "one employee can work two shifts on one day",
+        status == 200
+        and 'pill--Afternoon"' in doubled
+        and 'pill--Evening"' in doubled
+        and MONDAY in doubled,
+    )
+
+    status, store = supervisor.get(f"/shifts?week={MONDAY}")
+    check(
+        "Supervisor store view is grouped by day (FR08)",
+        status == 200 and "Employees working" in store and "Li Wei" in store,
     )
     check(
         "store overview hides shift-modification controls (URS 6)",
-        'name="shift_name"' not in store,
+        'name="shift_name"' not in store and 'name="work_date"' not in store,
+    )
+    check("store overview offers week navigation", "Next week" in store)
+
+    status, hr_store = hr.get("/shifts")
+    check(
+        "HR store view is grouped by employee and can filter",
+        status == 200
+        and "Week summary" in hr_store
+        and 'name="shift"' in hr_store
+        and "Li Wei" in hr_store,
     )
 
     status, mine = employee.get("/my-shifts")
     check(
-        "employee sees only their own schedule (FR07)",
+        "employee sees only their own weekly timetable (FR07)",
         status == 200 and "Li Wei" in mine and "Final Check" not in mine,
+    )
+    check(
+        "personal timetable is a shift-by-day grid",
+        "timetable__cell" in mine and "timetable__weekday" in mine and "Morning" in mine,
     )
 
     # --- 7. statistics (FR13) -------------------------------------------
     status, stats = hr.get("/statistics")
     check(
-        "statistics page reports totals (FR13)",
-        status == 200 and "Total employees" in stats and "Employees per shift" in stats,
+        "statistics page reports the weekly totals (FR13)",
+        status == 200 and "Total employees" in stats and "Shift plan of the week" in stats,
     )
 
     # --- 8. persistence (NFR03) ------------------------------------------
@@ -218,7 +261,7 @@ def main() -> int:
 
     # --- 9. delete cascades (FR02, use case 5) --------------------------
     status, deleted = hr.post(f"/employees/{new_id}/delete", {})
-    status, listing = hr.get("/employees")
+    status, listing = hr.get("/")
     table_body = listing.split("<tbody>")[1].split("</tbody>")[0] if "<tbody>" in listing else ""
     check(
         "HR deletes the employee and it leaves the table (FR02)",

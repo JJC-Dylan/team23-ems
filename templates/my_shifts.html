@@ -5,11 +5,11 @@
   <div>
     <h1>My work shifts</h1>
     <p class="muted">
-      You can view only your own assigned work shifts. Morning, Afternoon and
-      Evening are the three fixed shifts of the store.
+      {% if profile_linked and employee %}{{ employee.name }} · employee number
+      {{ employee.id }} · {% endif %}your personal timetable for the week. A tick
+      means you work that shift on that day; an empty cell means you are free.
     </p>
   </div>
-  <span class="role-badge role-badge--ordinary-employee">Ordinary Employee</span>
 </div>
 
 {% if not profile_linked %}
@@ -25,39 +25,73 @@
 
 <section class="card">
   <div class="card__head">
-    <h2>{{ employee.name }}</h2>
-    <span class="muted small">Employee number {{ employee.id }}</span>
+    <h2>Week of {{ week_label }}</h2>
+    <div class="weeknav">
+      <a class="button button--ghost button--small" href="{{ week.week_prev_url }}" rel="prev">‹ Previous week</a>
+      {% if not week.is_current_week %}
+        <a class="button button--ghost button--small" href="{{ week.week_this_url }}">This week</a>
+      {% endif %}
+      <a class="button button--ghost button--small" href="{{ week.week_next_url }}" rel="next">Next week ›</a>
+    </div>
   </div>
 
-  <dl class="detail-grid">
-    <div><dt>Address</dt><dd>{{ employee.address }}</dd></div>
-    <div><dt>Hourly wage</dt><dd>{{ hourly_wage_text }}</dd></div>
-    <div><dt>Hired on</dt><dd>{{ employee.hired_on or 'Not recorded' }}</dd></div>
-  </dl>
-</section>
-
-<section class="card">
-  <h2>Assigned work shifts</h2>
-  {% if shift_row %}
-    <table class="table">
-      <thead>
-        <tr><th>Shift</th><th>Assigned on</th><th>Assigned by</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><span class="pill pill--{{ shift_row.shift_name }}">{{ shift_row.shift_name }}</span></td>
-          <td>{{ shift_row.assigned_at }}</td>
-          <td>{{ shift_row.assigned_by }}</td>
-        </tr>
-      </tbody>
-    </table>
-  {% else %}
-    <p class="empty">You have not been assigned any shifts yet.</p>
+  {% if not shift_count %}
+    {% if week.is_current_week %}
+      <div class="alert alert--info">You have not been assigned any shifts yet.</div>
+    {% else %}
+      <div class="alert alert--info">You have no shifts scheduled in the week shown.</div>
+    {% endif %}
   {% endif %}
 
+  <div class="table-scroll">
+    <table class="timetable">
+      <caption class="visually-hidden">
+        Weekly timetable: rows are the three shifts, columns are the days
+        Monday to Sunday.
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col" class="timetable__corner">Shift</th>
+          {% for day in week.week %}
+            <th scope="col" class="timetable__day{% if day.is_today %} timetable__day--today{% endif %}">
+              <span class="timetable__weekday">{{ day.weekday }}</span>
+              <span class="timetable__date">{{ day.day }} {{ day.month }}</span>
+            </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in timetable %}
+        <tr>
+          <th scope="row" class="timetable__rowhead">
+            <span class="pill pill--{{ row.shift }}">{{ row.shift }}</span>
+            <span class="timetable__time">{{ row.time }}</span>
+          </th>
+          {% for cell in row.cells %}
+            {% if cell.assigned %}
+              <td class="timetable__cell timetable__cell--on"
+                  data-date="{{ cell.date }}" data-shift="{{ row.shift }}">
+                <span class="timetable__tick" aria-hidden="true">✓</span>
+                <span class="visually-hidden">{{ row.shift }} on {{ cell.weekday }} {{ cell.date }}: working</span>
+              </td>
+            {% else %}
+              <td class="timetable__cell timetable__cell--off"
+                  data-date="{{ cell.date }}" data-shift="{{ row.shift }}">
+                <span class="timetable__dash" aria-hidden="true">·</span>
+                <span class="visually-hidden">{{ row.shift }} on {{ cell.weekday }} {{ cell.date }}: free</span>
+              </td>
+            {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
   <p class="muted small">
-    Shift assignment is performed by your Store Supervisor. If a shift looks
-    wrong, please contact the supervisor rather than changing it here.
+    {{ shift_count }} shift(s) in this week. Shift assignment is performed by
+    your Store Supervisor; if a shift looks wrong, please contact the
+    supervisor rather than changing it here.
   </p>
 </section>
 

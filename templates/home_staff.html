@@ -1,4 +1,4 @@
-﻿{% extends 'base.html' %}
+{% extends 'base.html' %}
 
 {% block content %}
 <div class="pagehead">
@@ -8,7 +8,6 @@
       {{ role_descriptions[current_user.role] }}
     </p>
   </div>
-  <span class="role-badge role-badge--{{ role_slug(current_user.role) }}">{{ current_user.role }}</span>
 </div>
 
 <section class="kpi-grid">
@@ -17,11 +16,11 @@
     <span class="kpi__value">{{ total_employees }}</span>
   </article>
   <article class="kpi">
-    <span class="kpi__label">Shifts assigned</span>
+    <span class="kpi__label">Shifts planned</span>
     <span class="kpi__value">{{ assigned_total }}</span>
   </article>
   <article class="kpi">
-    <span class="kpi__label">Not yet assigned</span>
+    <span class="kpi__label">Unassigned</span>
     <span class="kpi__value kpi__value--warn">{{ unassigned_total }}</span>
   </article>
   <article class="kpi">
@@ -31,72 +30,112 @@
 </section>
 
 <section class="card">
-  <h2>Shift distribution</h2>
-  <div class="shift-bars">
-    {% for name in shift_names %}
-    <div class="shift-bar">
-      <span class="pill pill--{{ name }}">{{ name }}</span>
-      <span class="shift-bar__count">{{ shift_counts[name] }} employee(s)</span>
-    </div>
-    {% endfor %}
-    <div class="shift-bar">
-      <span class="pill pill--Unassigned">Unassigned</span>
-      <span class="shift-bar__count">{{ shift_counts['Unassigned'] }} employee(s)</span>
-    </div>
+  <div class="card__head">
+    <h2>Shift distribution</h2>
+    <span class="muted small">Week of {{ week_label }}</span>
   </div>
+  <div class="table-scroll">
+    <table class="table table--compact shift-table">
+      <caption class="visually-hidden">
+        Number of employees working each shift in the week of {{ week_label }}
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col" class="shift-table__corner"></th>
+          {% for option in shift_options %}
+            <th scope="col">
+              <span class="pill pill--{{ option.name }}">{{ option.name }}</span>
+              <span class="shift-table__time">{{ option.time }}</span>
+            </th>
+          {% endfor %}
+          <th scope="col">
+            <span class="pill pill--Unassigned">Unassigned</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row" class="shift-table__label">Employees</th>
+          {% for option in shift_options %}
+            <td class="num">{{ shift_people[option.name] }}</td>
+          {% endfor %}
+          <td class="num">{{ shift_people['Unassigned'] }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted small">
+    Employees who work the shift at least once in the week; someone working two
+    shifts is counted under both. Unassigned counts the employees with no shift
+    this week.
+  </p>
 </section>
 
 <section class="card">
   <div class="card__head">
-    <h2>Quick actions</h2>
-  </div>
-  <div class="action-row">
-    <a class="button button--primary" href="/employees">Open employee overview</a>
-    <a class="button" href="/shifts">Store shift overview</a>
-    <a class="button" href="/statistics">Statistics</a>
-    {% if current_user.can_manage_employees %}
-      <a class="button button--accent" href="/employees/new">Add new employee</a>
+    <h2>
+      Employee overview
+      <span class="muted small">{{ result_count }} employee(s) shown of {{ total_employees }} in total</span>
+    </h2>
+    {% if not can_manage %}
+      <span class="notice notice--readonly">Supervisor view · read-only employee data</span>
     {% endif %}
   </div>
-  {% if not current_user.can_manage_employees %}
-    <p class="muted small">
-      Your Supervisor role may assign work shifts from an employee's detail page
-      and may not create, edit or delete employee records.
-    </p>
-  {% endif %}
-</section>
 
-<section class="card">
-  <div class="card__head">
-    <h2>Recently added employees</h2>
-    <a class="link" href="/employees">View all</a>
+  <div class="action-row">
+    {% if can_manage %}
+      <a class="button button--accent" href="/employees/new">+ Add new employee</a>
+    {% endif %}
+    <a class="button" href="/shifts">Store shift overview</a>
+    <a class="button" href="/statistics">Shift statistics</a>
   </div>
-  {% if recent_employees %}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Address</th>
-        <th class="num">Hourly wage</th>
-        <th>Shift</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for employee in recent_employees %}
-      <tr>
-        <td><a class="link" href="/employees/{{ employee.id }}">{{ employee.name }}</a></td>
-        <td class="muted">{{ employee.address }}</td>
-        <td class="num">{{ format_currency(employee.hourly_wage) }}</td>
-        <td>
-          <span class="pill pill--{{ employee.shift_name or 'Unassigned' }}">
-            {{ employee.shift_name or 'Unassigned' }}
-          </span>
-        </td>      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p class="empty">No employee data available.</p>
+
+  <form class="filter-bar" method="get" action="/">
+    <div class="filter-bar__field filter-bar__field--grow">
+      <label for="q">Search</label>
+      <input id="q" name="q" type="search" value="{{ query }}"
+             placeholder="Name, address, phone or email">
+    </div>
+    <div class="filter-bar__field">
+      <label for="wage_min">Wage from</label>
+      <input id="wage_min" name="wage_min" type="number" step="0.01" min="0"
+             value="{{ wage_min }}" placeholder="0.00">
+    </div>
+    <div class="filter-bar__field">
+      <label for="wage_max">Wage to</label>
+      <input id="wage_max" name="wage_max" type="number" step="0.01" min="0"
+             value="{{ wage_max }}" placeholder="100.00">
+    </div>
+    <div class="filter-bar__field">
+      <label for="shift">Shift</label>
+      <select id="shift" name="shift">
+        <option value="">All shifts</option>
+        {% for name in shift_names %}
+          <option value="{{ name }}" {% if shift_filter == name %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+        <option value="Unassigned" {% if shift_filter == 'Unassigned' %}selected{% endif %}>Unassigned</option>
+      </select>
+    </div>
+    <div class="filter-bar__field">
+      <label for="sort">Sort by</label>
+      <select id="sort" name="sort">
+        <option value="name" {% if sort == 'name' %}selected{% endif %}>Name (A–Z)</option>
+        <option value="name_desc" {% if sort == 'name_desc' %}selected{% endif %}>Name (Z–A)</option>
+        <option value="wage" {% if sort == 'wage' %}selected{% endif %}>Wage (low to high)</option>
+        <option value="wage_desc" {% if sort == 'wage_desc' %}selected{% endif %}>Wage (high to low)</option>
+        <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest first</option>
+      </select>
+    </div>
+    <div class="filter-bar__actions">
+      <button type="submit" class="button button--primary">Search</button>
+      <a class="button button--ghost" href="/">Reset</a>
+    </div>
+  </form>
+
+  {% if filter_problem %}
+    <div class="alert alert--error">{{ filter_problem }} The wage filter was ignored.</div>
   {% endif %}
+
+  {% include 'partials/employee_table.html' %}
 </section>
 {% endblock %}

@@ -6,16 +6,12 @@
     <h1>{{ employee.name }}</h1>
     <p class="muted">
       Employee number {{ employee.id }} ·
-      current shift
-      <span class="pill pill--{{ employee.shift_name or 'Unassigned' }}">
-        {{ employee.shift_name or 'Unassigned' }}
-      </span>
-      ·
-      hourly wage {{ hourly_wage_text }}
+      hourly wage {{ hourly_wage_text }} ·
+      {{ shift_count }} shift(s) planned in the week of {{ week_label }}
     </p>
   </div>
   <div class="action-row">
-    <a class="button button--ghost" href="/employees">Back to overview</a>
+    <a class="button button--ghost" href="/">Back to employee overview</a>
     {% if can_edit %}
       <a class="button button--primary" href="/employees/{{ employee.id }}/edit">Edit employee</a>
     {% endif %}
@@ -24,17 +20,17 @@
 
 {% if can_assign %}
   <div class="notice notice--supervisor">
-    Supervisor view · you may assign work shifts here, but you cannot edit or
-    delete employee records.
+    Supervisor view · you may add and remove rota entries here, but you cannot
+    edit or delete employee records.
   </div>
 {% elif can_edit %}
   <div class="notice notice--hr">
-    HR view · you own employee records. Daily shift assignment is performed by
-    the Store Supervisor.
+    HR view · you own employee records. Daily rota planning is performed by the
+    Store Supervisor.
   </div>
 {% endif %}
 
-<div class="two-col">
+<div class="two-col{% if not can_assign %} two-col--single{% endif %}">
   <section class="card">
     <h2>Employee personal data</h2>
     <dl class="detail-grid">
@@ -56,62 +52,100 @@
     {% endif %}
   </section>
 
+  {% if can_assign %}
   <section class="card card--shift-panel">
-    <h2>Work-shift assignment</h2>
+    <h2>Add a rota entry</h2>
 
-    {% if can_assign %}
-      <form method="post" action="/employees/{{ employee.id }}/shift" class="form">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+    <form method="post" action="/employees/{{ employee.id }}/shift" class="form">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
 
-        <div class="field">
-          <label for="shift_name">Assign a shift</label>
-          <select id="shift_name" name="shift_name" required>
-            <option value="" {% if not shift_row %}selected{% endif %} disabled>Choose a shift…</option>
-            {% for name in shift_names %}
-              <option value="{{ name }}" {% if shift_row and shift_row.shift_name == name %}selected{% endif %}>
-                {{ name }}
-              </option>
-            {% endfor %}
-            <option value="Unassigned" {% if not shift_row %}selected{% endif %}>No shift (clear assignment)</option>
-          </select>
-        </div>
+      <div class="field">
+        <label for="work_date">Working date</label>
+        <input id="work_date" name="work_date" type="date"
+               value="{{ form_date }}" required>
+      </div>
 
-        <button type="submit" class="button button--primary button--block">Confirm shift assignment</button>
-      </form>
+      <div class="field">
+        <label for="shift_name">Shift</label>
+        <select id="shift_name" name="shift_name" required>
+          <option value="" disabled>Choose a shift…</option>
+          {% for option in shift_options %}
+            <option value="{{ option.name }}">{{ option.name }} ({{ option.time }})</option>
+          {% endfor %}
+        </select>
+      </div>
 
-      {% if shift_row %}
-        <p class="muted small">
-          Last changed on {{ shift_row.assigned_at }} by {{ shift_row.assigned_by }}.
-          Saving a new shift replaces the current one.
-        </p>
-      {% endif %}
-    {% else %}
-      <p class="muted">
-        The shift-assignment panel is available to the Store Supervisor only.
-        Human Resources performs personnel-file operations; daily shift
-        assignment belongs to the supervisor.
-      </p>
-    {% endif %}
+      <button type="submit" class="button button--primary button--block">Confirm shift assignment</button>
+    </form>
+
+    <p class="muted small">
+      One employee may work several shifts on the same day: add Morning and
+      Evening separately and both stay in the rota. The same date and shift
+      entered twice only refreshes who confirmed it.
+    </p>
   </section>
+  {% endif %}
 </div>
 
 <section class="card">
-  <h2>Assigned work shifts of this employee</h2>
-  {% if shift_row %}
-    <table class="table">
-      <thead>
-        <tr><th>Shift</th><th>Assigned on</th><th>Assigned by</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><span class="pill pill--{{ shift_row.shift_name }}">{{ shift_row.shift_name }}</span></td>
-          <td>{{ shift_row.assigned_at }}</td>
-          <td>{{ shift_row.assigned_by }}</td>
-        </tr>
-      </tbody>
-    </table>
+  <div class="card__head">
+    <h2>Rota for the week of {{ week_label }}</h2>
+    <div class="weeknav">
+      <a class="button button--ghost button--small" href="{{ week.week_prev_url }}" rel="prev">‹ Previous week</a>
+      {% if not week.is_current_week %}
+        <a class="button button--ghost button--small" href="{{ week.week_this_url }}">This week</a>
+      {% endif %}
+      <a class="button button--ghost button--small" href="{{ week.week_next_url }}" rel="next">Next week ›</a>
+    </div>
+  </div>
+
+  {% if rota %}
+    <div class="table-scroll">
+      <table class="table table--hover">
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>Shift</th>
+            <th>Time</th>
+            <th>Confirmed on</th>
+            <th>Confirmed by</th>
+            {% if can_assign %}<th class="actions-col">Actions</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rota %}
+          <tr>
+            <td>
+              <span class="weekday">{{ row.weekday }}</span>
+              <span class="muted small">{{ row.work_date }}</span>
+            </td>
+            <td><span class="pill pill--{{ row.shift_name }}">{{ row.shift_name }}</span></td>
+            <td class="muted">{{ row.time }}</td>
+            <td class="muted">{{ row.assigned_at }}</td>
+            <td class="muted">{{ row.assigned_by or '—' }}</td>
+            {% if can_assign %}
+            <td class="actions-col">
+              <form method="post" action="/employees/{{ employee.id }}/shift/remove" class="inline-form"
+                    data-confirm="Remove the {{ row.shift_name }} shift on {{ row.work_date }}?">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="work_date" value="{{ row.work_date }}">
+                <input type="hidden" name="shift_name" value="{{ row.shift_name }}">
+                <button type="submit" class="button button--danger button--small">Remove</button>
+              </form>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   {% else %}
     <p class="empty">No shifts assigned for this employee.</p>
   {% endif %}
+
+  <p class="muted small">
+    Only this week is shown. Use the week navigation to look at another week;
+    the rota of every employee is on <a class="link" href="/shifts?week={{ week.week_start }}">Store shifts</a>.
+  </p>
 </section>
 {% endblock %}

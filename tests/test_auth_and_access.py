@@ -48,10 +48,34 @@ class LoginTests(ApplicationTestCase):
         response = self.client.get("/login")
         self.assertNotIn("wrong-password", response.text)
 
-    def test_ordinary_employee_lands_on_their_own_shift_page(self) -> None:
-        response = self.client.login("employee", "emp123")
-        self.assertEqual(response.status, 303)
-        self.assertIn("/my-shifts", response.location)
+    def test_every_role_lands_on_the_home_page(self) -> None:
+        """URS 7: sign-in enters the System Home Page, then branches by role."""
+        for username, password in (
+            ("hr", "hr123"),
+            ("supervisor", "super123"),
+            ("employee", "emp123"),
+        ):
+            with self.subTest(user=username):
+                client = self.fresh_client()
+                response = client.login(username, password)
+                self.assertEqual(response.status, 303)
+                self.assertEqual(response.location, "/")
+                home = client.get("/")
+                self.assertEqual(home.status, 200)
+                self.assertIn("Welcome,", home.text)
+
+    def test_employee_home_shows_only_their_own_week(self) -> None:
+        client = self.sign_in("Ordinary Employee")
+        home = client.get("/")
+        self.assertEqual(home.status, 200)
+        self.assertIn("Welcome, Ordinary Employee", home.text)
+        self.assertIn("This week's shifts", home.text)
+        self.assertIn("6 shift(s) planned", home.text)
+        # The home page must not leak another employee's schedule.
+        for other in ("Zhang Min", "Chen Hao", "Wang Fang", "Sun Jie"):
+            self.assertNotIn(other, home.text)
+        # The full timetable stays one click away.
+        self.assertIn('href="/my-shifts"', home.text)
 
     def test_logout_ends_the_session(self) -> None:
         self.client.login("hr", "hr123")
@@ -71,7 +95,7 @@ class LoginTests(ApplicationTestCase):
 
 class AccessControlTests(ApplicationTestCase):
     def test_anonymous_visitor_is_sent_to_login(self) -> None:
-        for path in ("/", "/employees", "/employees/1", "/shifts", "/statistics", "/my-shifts"):
+        for path in ("/", "/employees/1", "/shifts", "/statistics", "/my-shifts"):
             with self.subTest(path=path):
                 response = self.client.get(path)
                 self.assertEqual(response.status, 303)
@@ -79,7 +103,7 @@ class AccessControlTests(ApplicationTestCase):
 
     def test_employee_role_cannot_open_staff_pages(self) -> None:
         client = self.sign_in("Ordinary Employee")
-        for path in ("/employees", "/employees/1", "/shifts", "/statistics"):
+        for path in ("/employees/1", "/shifts", "/statistics"):
             with self.subTest(path=path):
                 response = client.get(path)
                 self.assertEqual(response.status, 403)
@@ -95,7 +119,7 @@ class AccessControlTests(ApplicationTestCase):
     def test_supervisor_may_read_but_not_manage_employees(self) -> None:
         client = self.sign_in("Supervisor")
 
-        overview = client.get("/employees")
+        overview = client.get("/")
         self.assertEqual(overview.status, 200)
         self.assertIn("read-only employee data", overview.text)
         self.assertNotIn('href="/employees/new"', overview.text)
@@ -112,14 +136,19 @@ class AccessControlTests(ApplicationTestCase):
     def test_hr_may_manage_employees_but_not_assign_shifts(self) -> None:
         client = self.sign_in("HR")
 
-        overview = client.get("/employees")
+        overview = client.get("/")
         self.assertEqual(overview.status, 200)
         self.assertIn('href="/employees/new"', overview.text)
+        self.assertEqual(client.get("/employees").status, 404, "the separate overview page was removed")
 
         detail = client.get("/employees/1")
         self.assertEqual(detail.status, 200)
         self.assertIn("Edit employee", detail.text)
         self.assertNotIn("Confirm shift assignment", detail.text)
+        # HR gets no rota panel at all, only the read-only week of that employee.
+        self.assertNotIn("Add a rota entry", detail.text)
+        self.assertIn("Rota for the week of", detail.text)
+        self.assertNotIn('name="work_date"', detail.text)
 
         response = client.post("/employees/1/shift", {"shift_name": "Morning"})
         self.assertEqual(response.status, 403)
